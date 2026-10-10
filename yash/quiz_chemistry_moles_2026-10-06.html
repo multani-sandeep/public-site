@@ -29,6 +29,7 @@
       <span>Card <span x-text="current + 1"></span> of <span x-text="cards.length"></span></span>
       <span class="text-green-400">✓ <span x-text="correct"></span></span>
       <span class="text-red-400">✗ <span x-text="incorrect"></span></span>
+      <button @click="resetProgress()" class="text-xs px-2 py-1 rounded border border-slate-600 hover:bg-slate-700">Reset progress</button>
     </div>
   </header>
 
@@ -109,33 +110,97 @@
     ];
 
     function quiz() {
+      // Progress is saved in localStorage, keyed per quiz page. SIG changes if the cards change,
+      // so a regenerated quiz never loads stale progress. Every access is wrapped in try/catch
+      // because storage can be blocked (private window, file://, cleared site data).
+      const KEY = 'quiz-progress:' + location.pathname;
+      const SIG = CARDS.length + ':' + (CARDS[0] ? CARDS[0].q.slice(0, 40) : '');
+      const all = CARDS.map((_, i) => i);
       return {
-        cards: CARDS, current: 0, revealed: false, correct: 0, incorrect: 0, done: false, wrongCards: [],
+        deck: all,            // indices into CARDS for the active run (all, or wrong-only retry)
+        cards: CARDS,
+        current: 0,
+        revealed: false,
+        correct: 0,
+        incorrect: 0,
+        done: false,
+        wrongIdx: [],         // indices into CARDS answered wrong this run
+
         init() {
+          this.load();
           this.$watch('current', () => this.$nextTick(() => this.renderMath()));
           this.$nextTick(() => this.renderMath());
+          window.addEventListener('load', () => this.renderMath());
+        },
+        save() {
+          try {
+            localStorage.setItem(KEY, JSON.stringify({
+              sig: SIG, deck: this.deck, current: this.current, revealed: this.revealed,
+              correct: this.correct, incorrect: this.incorrect, done: this.done, wrongIdx: this.wrongIdx
+            }));
+          } catch (e) { /* storage unavailable — quiz still works, just not remembered */ }
+        },
+        load() {
+          try {
+            const s = JSON.parse(localStorage.getItem(KEY));
+            const valid = s && s.sig === SIG && Array.isArray(s.deck) && s.deck.length
+              && s.deck.every(i => CARDS[i]) && Array.isArray(s.wrongIdx);
+            if (!valid) return;
+            this.deck = s.deck;
+            this.cards = s.deck.map(i => CARDS[i]);
+            this.current = Math.min(Math.max(s.current | 0, 0), this.cards.length - 1);
+            this.revealed = !!s.revealed;
+            this.correct = s.correct | 0;
+            this.incorrect = s.incorrect | 0;
+            this.done = !!s.done;
+            this.wrongIdx = s.wrongIdx;
+          } catch (e) { /* ignore corrupt or unavailable storage */ }
+        },
+        resetProgress() {
+          try { localStorage.removeItem(KEY); } catch (e) {}
+          this.restart(false);
         },
         renderMath() {
           if (window.renderMathInElement) {
             renderMathInElement(this.$el, {
-              delimiters: [{ left: '$$', right: '$$', display: true }, { left: '$', right: '$', display: false }],
+              delimiters: [
+                { left: '$$', right: '$$', display: true },
+                { left: '$', right: '$', display: false }
+              ],
               throwOnError: false
             });
           }
         },
-        reveal() { this.revealed = true; this.$nextTick(() => this.renderMath()); },
+        reveal() {
+          this.revealed = true;
+          this.save();
+          this.$nextTick(() => this.renderMath());
+        },
         mark(isCorrect) {
           if (isCorrect) this.correct++;
-          else { this.incorrect++; this.wrongCards.push(this.cards[this.current]); }
+          else { this.incorrect++; this.wrongIdx.push(this.deck[this.current]); }
           this.next();
         },
         next() {
-          if (this.current < this.cards.length - 1) { this.current++; this.revealed = false; }
-          else { this.done = true; }
+          if (this.current < this.cards.length - 1) {
+            this.current++;
+            this.revealed = false;
+          } else {
+            this.done = true;
+          }
+          this.save();
         },
         restart(wrongOnly) {
-          this.cards = wrongOnly ? [...this.wrongCards] : CARDS;
-          this.current = 0; this.revealed = false; this.correct = 0; this.incorrect = 0; this.done = false; this.wrongCards = [];
+          this.deck = wrongOnly ? [...this.wrongIdx] : all;
+          this.cards = this.deck.map(i => CARDS[i]);
+          this.current = 0;
+          this.revealed = false;
+          this.correct = 0;
+          this.incorrect = 0;
+          this.done = false;
+          this.wrongIdx = [];
+          this.save();
+          this.$nextTick(() => this.renderMath());
         }
       }
     }
