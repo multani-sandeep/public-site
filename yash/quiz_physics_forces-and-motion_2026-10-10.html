@@ -30,6 +30,7 @@
       <span>Card <span x-text="current + 1"></span> of <span x-text="cards.length"></span></span>
       <span class="text-green-400">✓ <span x-text="correct"></span></span>
       <span class="text-red-400">✗ <span x-text="incorrect"></span></span>
+      <span class="text-amber-400" title="Not covered in school">⊘ <span x-text="notCovered"></span></span>
       <button @click="resetProgress()" class="text-xs px-2 py-1 rounded border border-slate-600 hover:bg-slate-700">Reset progress</button>
     </div>
   </header>
@@ -47,7 +48,7 @@
         <div class="flip-front bg-slate-800 rounded-2xl border border-slate-700 p-8 flex flex-col justify-between shadow-xl">
           <div class="flex items-start gap-3">
             <span class="shrink-0 w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-sm font-bold"
-                  x-text="current + 1"></span>
+                  x-text="deck[current] + 1"></span>
             <div class="text-lg leading-relaxed text-white min-w-0" x-html="cards[current].q"></div>
           </div>
           <div x-show="cards[current].img" class="mt-4">
@@ -68,12 +69,16 @@
       </div>
     </div>
 
-    <div x-show="revealed" x-transition class="flex gap-4">
-      <button @click="mark(false)"
+    <div x-show="revealed" x-transition class="flex flex-wrap justify-center gap-4">
+      <button @click="mark('wrong')"
               class="flex items-center gap-2 px-6 py-3 rounded-xl bg-red-600 hover:bg-red-500 transition font-semibold">
         ✗ Got it wrong
       </button>
-      <button @click="mark(true)"
+      <button @click="mark('skip')"
+              class="flex items-center gap-2 px-6 py-3 rounded-xl bg-amber-600 hover:bg-amber-500 transition font-semibold">
+        ⊘ Not covered in school
+      </button>
+      <button @click="mark('correct')"
               class="flex items-center gap-2 px-6 py-3 rounded-xl bg-green-600 hover:bg-green-500 transition font-semibold">
         ✓ Got it right
       </button>
@@ -94,7 +99,8 @@
     <div class="flex gap-8 text-2xl">
       <div class="text-center"><p class="text-green-400 font-bold" x-text="correct"></p><p class="text-slate-400 text-sm">Correct</p></div>
       <div class="text-center"><p class="text-red-400 font-bold" x-text="incorrect"></p><p class="text-slate-400 text-sm">Incorrect</p></div>
-      <div class="text-center"><p class="text-yellow-400 font-bold" x-text="Math.round((correct/cards.length)*100) + '%'"></p><p class="text-slate-400 text-sm">Score</p></div>
+      <div class="text-center"><p class="text-amber-400 font-bold" x-text="notCovered"></p><p class="text-slate-400 text-sm">Not covered</p></div>
+      <div class="text-center"><p class="text-yellow-400 font-bold" x-text="scorePct() + '%'"></p><p class="text-slate-400 text-sm">Score (excl. not covered)</p></div>
     </div>
     <div class="flex gap-4">
       <button @click="restart(false)"
@@ -234,8 +240,10 @@ Calculate the acceleration in each section, the total distance travelled and the
         revealed: false,
         correct: 0,
         incorrect: 0,
+        notCovered: 0,        // cards marked "not covered in school" — excluded from score and retry
         done: false,
         wrongIdx: [],         // indices into CARDS answered wrong this run
+        skipIdx: [],          // indices into CARDS marked not covered this run
 
         init() {
           this.load();
@@ -247,7 +255,8 @@ Calculate the acceleration in each section, the total distance travelled and the
           try {
             localStorage.setItem(KEY, JSON.stringify({
               sig: SIG, deck: this.deck, current: this.current, revealed: this.revealed,
-              correct: this.correct, incorrect: this.incorrect, done: this.done, wrongIdx: this.wrongIdx
+              correct: this.correct, incorrect: this.incorrect, notCovered: this.notCovered, done: this.done,
+              wrongIdx: this.wrongIdx, skipIdx: this.skipIdx
             }));
           } catch (e) { /* storage unavailable — quiz still works, just not remembered */ }
         },
@@ -263,6 +272,8 @@ Calculate the acceleration in each section, the total distance travelled and the
             this.revealed = !!s.revealed;
             this.correct = s.correct | 0;
             this.incorrect = s.incorrect | 0;
+            this.notCovered = s.notCovered | 0;
+            this.skipIdx = Array.isArray(s.skipIdx) ? s.skipIdx : [];
             this.done = !!s.done;
             this.wrongIdx = s.wrongIdx;
           } catch (e) { /* ignore corrupt or unavailable storage */ }
@@ -287,10 +298,16 @@ Calculate the acceleration in each section, the total distance travelled and the
           this.save();
           this.$nextTick(() => this.renderMath());
         },
-        mark(isCorrect) {
-          if (isCorrect) this.correct++;
-          else { this.incorrect++; this.wrongIdx.push(this.deck[this.current]); }
+        mark(result) {   // 'correct' | 'wrong' | 'skip' (not covered in school)
+          const idx = this.deck[this.current];
+          if (result === 'correct') this.correct++;
+          else if (result === 'skip') { this.notCovered++; this.skipIdx.push(idx); }
+          else { this.incorrect++; this.wrongIdx.push(idx); }
           this.next();
+        },
+        scorePct() {
+          const attempted = this.cards.length - this.notCovered;
+          return attempted > 0 ? Math.round((this.correct / attempted) * 100) : 0;
         },
         next() {
           if (this.current < this.cards.length - 1) {
@@ -308,8 +325,10 @@ Calculate the acceleration in each section, the total distance travelled and the
           this.revealed = false;
           this.correct = 0;
           this.incorrect = 0;
+          this.notCovered = 0;
           this.done = false;
           this.wrongIdx = [];
+          this.skipIdx = [];
           this.save();
           this.$nextTick(() => this.renderMath());
         }
