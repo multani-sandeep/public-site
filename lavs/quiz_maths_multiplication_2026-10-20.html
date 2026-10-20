@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Maths — Multiplication Quiz</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <!-- KaTeX for TeX/math and chemical formula rendering (bullet 6) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+    .flip-card { perspective: 1000px; }
+    /* Grid layout allows card height to flex with content (bullet 7) */
+    .flip-inner { transition: transform 0.5s; transform-style: preserve-3d; display: grid; }
+    .flipped .flip-inner { transform: rotateY(180deg); }
+    .flip-front, .flip-back { backface-visibility: hidden; -webkit-backface-visibility: hidden; grid-area: 1 / 1; }
+    .flip-back { transform: rotateY(180deg); }
+  </style>
+</head>
+<body class="bg-gradient-to-b from-sky-100 to-pink-100 min-h-screen text-slate-800" x-data="quiz()" x-cloak>
+
+  <!-- Header -->
+  <header class="bg-white border-b-4 border-sky-300 px-6 py-4 flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-extrabold text-purple-600">🌟 Maths Flashcards</h1>
+      <p class="text-sm text-slate-500">Multiplication (tables, multi-digit, word problems) · Hard · <span x-text="cards.length"></span> cards</p>
+    </div>
+    <div class="flex items-center gap-4 text-base font-semibold text-slate-500">
+      <span>Card <span x-text="current + 1"></span> of <span x-text="cards.length"></span></span>
+      <span class="text-green-600">✓ <span x-text="correct"></span></span>
+      <span class="text-red-500">✗ <span x-text="incorrect"></span></span>
+      <span class="text-amber-600" title="Not covered in school">⊘ <span x-text="notCovered"></span></span>
+      <button @click="resetProgress()" class="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-100">Reset progress</button>
+    </div>
+  </header>
+
+  <!-- Progress bar -->
+  <div class="h-3 bg-white">
+    <div class="h-3 bg-purple-400 transition-all duration-300"
+         :style="`width: ${((current + 1) / cards.length) * 100}%`"></div>
+  </div>
+
+  <!-- Card area -->
+  <main class="flex flex-col items-center justify-center px-4 py-12 gap-8">
+
+    <!-- Flashcard -->
+    <div class="flip-card w-full max-w-2xl cursor-pointer" :class="{ flipped: revealed }" @click="reveal()">
+      <div class="flip-inner">
+
+        <!-- Front (Question) -->
+        <div class="flip-front bg-white rounded-3xl border-4 border-sky-300 p-8 flex flex-col justify-between shadow-xl">
+          <div class="flex items-start gap-3">
+            <span class="shrink-0 w-8 h-8 rounded-full bg-purple-500 text-white flex items-center justify-center text-base font-bold"
+                  x-text="deck[current] + 1"></span>
+            <p class="text-xl leading-relaxed text-slate-800" x-html="cards[current].q"></p>
+          </div>
+          <div x-show="cards[current].img" class="mt-4">
+            <img :src="cards[current].img" :alt="cards[current].imgAlt || 'Diagram'"
+                 class="rounded-lg max-h-40 mx-auto object-contain border-2 border-sky-200">
+          </div>
+          <p class="text-slate-400 text-sm text-center mt-4">Tap the card to see the answer 👆</p>
+        </div>
+
+        <!-- Back (Answer) -->
+        <div class="flip-back bg-amber-100 rounded-3xl border-4 border-amber-300 p-8 flex flex-col justify-between shadow-xl">
+          <div>
+            <p class="text-xs uppercase tracking-widest text-amber-700 mb-3 font-bold">Answer ✨</p>
+            <p class="text-xl leading-relaxed text-slate-800" x-html="cards[current].a"></p>
+          </div>
+          <p class="text-slate-500 text-sm text-center mt-4">How did you do? Choose below</p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Controls — hidden until revealed -->
+    <div x-show="revealed" x-transition class="flex flex-wrap justify-center gap-4">
+      <button @click="mark('wrong')"
+              class="flex items-center gap-2 px-6 py-3 text-lg text-white rounded-2xl bg-red-500 hover:bg-red-400 transition font-bold">
+        ✗ Not yet
+      </button>
+      <button @click="mark('skip')"
+              class="flex items-center gap-2 px-6 py-3 text-lg text-white rounded-2xl bg-amber-500 hover:bg-amber-400 transition font-bold">
+        ⊘ Not covered in school
+      </button>
+      <button @click="mark('correct')"
+              class="flex items-center gap-2 px-6 py-3 text-lg text-white rounded-2xl bg-green-500 hover:bg-green-400 transition font-bold">
+        ✓ Got it right!
+      </button>
+    </div>
+
+    <!-- Reveal button when not yet flipped -->
+    <div x-show="!revealed" x-transition>
+      <button @click="reveal()"
+              class="px-8 py-3 text-lg text-white rounded-2xl bg-purple-500 hover:bg-purple-400 transition font-bold">
+        Show Answer
+      </button>
+    </div>
+
+  </main>
+
+  <!-- Completion screen -->
+  <div x-show="done" x-transition
+       class="fixed inset-0 bg-sky-100/95 flex flex-col items-center justify-center gap-6 p-8">
+    <h2 class="text-4xl font-extrabold text-purple-600">🎉 Quiz Complete! Well done, Lavanya!</h2>
+    <div class="flex gap-8 text-2xl">
+      <div class="text-center"><p class="text-green-600 font-bold" x-text="correct"></p><p class="text-slate-500 text-sm">Correct</p></div>
+      <div class="text-center"><p class="text-red-500 font-bold" x-text="incorrect"></p><p class="text-slate-500 text-sm">Incorrect</p></div>
+      <div class="text-center"><p class="text-amber-600 font-bold" x-text="notCovered"></p><p class="text-slate-500 text-sm">Not covered</p></div>
+      <div class="text-center"><p class="text-purple-600 font-bold" x-text="scorePct() + '%'"></p><p class="text-slate-500 text-sm">Score (excl. not covered)</p></div>
+    </div>
+    <div class="flex gap-4">
+      <button @click="restart(false)"
+              class="px-6 py-3 text-lg text-white rounded-2xl bg-purple-500 hover:bg-purple-400 transition font-bold">
+        Restart All
+      </button>
+      <button @click="restart(true)" x-show="incorrect > 0"
+              class="px-6 py-3 text-lg text-white rounded-2xl bg-red-500 hover:bg-red-400 transition font-bold">
+        Retry Wrong Cards
+      </button>
+    </div>
+  </div>
+
+  <script>
+    function quiz() {
+      // Progress is saved in localStorage, keyed per quiz page. SIG changes if the cards change,
+      // so a regenerated quiz never loads stale progress. Every access is wrapped in try/catch
+      // because storage can be blocked (private window, file://, cleared site data).
+      const KEY = 'quiz-progress:' + location.pathname;
+      const SIG = CARDS.length + ':' + (CARDS[0] ? CARDS[0].q.slice(0, 40) : '');
+      const all = CARDS.map((_, i) => i);
+      return {
+        deck: all,            // indices into CARDS for the active run (all, or wrong-only retry)
+        cards: CARDS,
+        current: 0,
+        revealed: false,
+        correct: 0,
+        incorrect: 0,
+        notCovered: 0,        // cards marked "not covered in school" — excluded from score and retry
+        done: false,
+        wrongIdx: [],         // indices into CARDS answered wrong this run
+        skipIdx: [],          // indices into CARDS marked not covered this run
+
+        init() {
+          this.load();
+          this.$watch('current', () => this.$nextTick(() => this.renderMath()));
+          this.$nextTick(() => this.renderMath());
+        },
+        save() {
+          try {
+            localStorage.setItem(KEY, JSON.stringify({
+              sig: SIG, deck: this.deck, current: this.current, revealed: this.revealed,
+              correct: this.correct, incorrect: this.incorrect, notCovered: this.notCovered, done: this.done,
+              wrongIdx: this.wrongIdx, skipIdx: this.skipIdx
+            }));
+          } catch (e) { /* storage unavailable — quiz still works, just not remembered */ }
+        },
+        load() {
+          try {
+            const s = JSON.parse(localStorage.getItem(KEY));
+            const valid = s && s.sig === SIG && Array.isArray(s.deck) && s.deck.length
+              && s.deck.every(i => CARDS[i]) && Array.isArray(s.wrongIdx);
+            if (!valid) return;
+            this.deck = s.deck;
+            this.cards = s.deck.map(i => CARDS[i]);
+            this.current = Math.min(Math.max(s.current | 0, 0), this.cards.length - 1);
+            this.revealed = !!s.revealed;
+            this.correct = s.correct | 0;
+            this.incorrect = s.incorrect | 0;
+            this.notCovered = s.notCovered | 0;
+            this.skipIdx = Array.isArray(s.skipIdx) ? s.skipIdx : [];
+            this.done = !!s.done;
+            this.wrongIdx = s.wrongIdx;
+          } catch (e) { /* ignore corrupt or unavailable storage */ }
+        },
+        resetProgress() {
+          try { localStorage.removeItem(KEY); } catch (e) {}
+          this.restart(false);
+        },
+        renderMath() {
+          if (window.renderMathInElement) {
+            renderMathInElement(this.$el, {
+              delimiters: [
+                { left: '$$', right: '$$', display: true },
+                { left: '$', right: '$', display: false }
+              ],
+              throwOnError: false
+            });
+          }
+        },
+        reveal() {
+          this.revealed = true;
+          this.save();
+          this.$nextTick(() => this.renderMath());
+        },
+        mark(result) {   // 'correct' | 'wrong' | 'skip' (not covered in school)
+          const idx = this.deck[this.current];
+          if (result === 'correct') this.correct++;
+          else if (result === 'skip') { this.notCovered++; this.skipIdx.push(idx); }
+          else { this.incorrect++; this.wrongIdx.push(idx); }
+          this.next();
+        },
+        scorePct() {
+          const attempted = this.cards.length - this.notCovered;
+          return attempted > 0 ? Math.round((this.correct / attempted) * 100) : 0;
+        },
+        next() {
+          if (this.current < this.cards.length - 1) {
+            this.current++;
+            this.revealed = false;
+          } else {
+            this.done = true;
+          }
+          this.save();
+        },
+        restart(wrongOnly) {
+          this.deck = wrongOnly ? [...this.wrongIdx] : all;
+          this.cards = this.deck.map(i => CARDS[i]);
+          this.current = 0;
+          this.revealed = false;
+          this.correct = 0;
+          this.incorrect = 0;
+          this.notCovered = 0;
+          this.done = false;
+          this.wrongIdx = [];
+          this.skipIdx = [];
+          this.save();
+          this.$nextTick(() => this.renderMath());
+        }
+      }
+    }
+
+    const CARDS = [
+      { q: "What is 7 $\\times$ 8?", a: "<strong>56</strong><br>Tip: 5, 6, 7, 8 → 56 = 7 × 8." },
+      { q: "What is 12 $\\times$ 9?", a: "<strong>108</strong><br>10 × 9 = 90 and 2 × 9 = 18, so 90 + 18 = 108." },
+      { q: "What is 6 $\\times$ 11?", a: "<strong>66</strong><br>For 11 × a single digit, write the digit twice: 6 → 66." },
+      { q: "What is 34 $\\times$ 5?", a: "<strong>170</strong><br>30 × 5 = 150 and 4 × 5 = 20, so 150 + 20 = 170." },
+      { q: "What is 52 $\\times$ 6?", a: "<strong>312</strong><br>50 × 6 = 300 and 2 × 6 = 12, so 300 + 12 = 312." },
+      { q: "What is 125 $\\times$ 4?", a: "<strong>500</strong><br>Double 125 to get 250, then double again to get 500." },
+      { q: "What is 243 $\\times$ 3?", a: "<strong>729</strong><br>200 × 3 = 600, 40 × 3 = 120, 3 × 3 = 9. Then 600 + 120 + 9 = 729." },
+      { q: "What is 4 $\\times$ 70?", a: "<strong>280</strong><br>4 × 7 = 28, then multiply by 10 to get 280." },
+      { q: "What is 8 $\\times$ 600?", a: "<strong>4800</strong><br>8 × 6 = 48, then multiply by 100 to get 4800." },
+      { q: "What is 3241 $\\times$ 8?", a: "<strong>25,928</strong><br>3000 × 8 = 24,000<br>200 × 8 = 1,600<br>40 × 8 = 320<br>1 × 8 = 8<br>Add them: 24,000 + 1,600 + 320 + 8 = 25,928." },
+      { q: "Explain a quick way to work out 9 $\\times$ 14 using the 10 times table. What is the answer?", a: "<strong>Do 10 lots, then take away 1 lot:</strong><br>10 × 14 = 140, and 140 − 14 = <strong>126</strong>.<br>This works because 9 lots is one lot less than 10 lots." },
+      { q: "⭐ <strong>Challenge:</strong> A number multiplied by 7 gives 238. What is the number? Then multiply that number by 4.", a: "Work backwards with division: 238 ÷ 7 = <strong>34</strong>.<br>Then 34 × 4 = <strong>136</strong>." },
+      { q: "⭐ <strong>Challenge:</strong> A box holds 8 packs of pencils. Each pack has 12 pencils. A shop has 5 boxes. How many pencils is that altogether?", a: "• One box: 8 × 12 = 96 pencils.<br>• Five boxes: 96 × 5 = 480.<br>The answer is <strong>480 pencils</strong>." },
+      { q: "⭐ <strong>Challenge:</strong> Which is bigger, 6 $\\times$ 74 or 7 $\\times$ 63? How much bigger? Show how you know.", a: "6 × 74 = 444 (6 × 70 = 420, 6 × 4 = 24).<br>7 × 63 = 441 (7 × 60 = 420, 7 × 3 = 21).<br><strong>6 × 74 is bigger, by 3.</strong>" },
+      { q: "⭐ <strong>Challenge:</strong> I think of a number. I multiply it by 6, then add 9. My answer is 75. What was my number?", a: "Undo each step, last step first:<br>• 75 − 9 = 66<br>• 66 ÷ 6 = <strong>11</strong><br>Check: 11 × 6 = 66, and 66 + 9 = 75 ✓" }
+    ];
+  </script>
+</body>
+</html>
