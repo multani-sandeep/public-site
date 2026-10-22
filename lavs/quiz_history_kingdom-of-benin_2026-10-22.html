@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>History — Kingdom of Benin Quiz</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <!-- KaTeX for TeX/math and chemical formula rendering (bullet 6) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+    .flip-card { perspective: 1000px; }
+    /* Grid layout allows card height to flex with content (bullet 7) */
+    .flip-inner { transition: transform 0.5s; transform-style: preserve-3d; display: grid; }
+    .flipped .flip-inner { transform: rotateY(180deg); }
+    .flip-front, .flip-back { backface-visibility: hidden; -webkit-backface-visibility: hidden; grid-area: 1 / 1; }
+    .flip-back { transform: rotateY(180deg); }
+  </style>
+</head>
+<body class="bg-gradient-to-b from-sky-100 to-pink-100 min-h-screen text-slate-800" x-data="quiz()" x-cloak>
+
+  <!-- Header -->
+  <header class="bg-white border-b-4 border-sky-300 px-6 py-4 flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-extrabold text-purple-600">🌟 History Flashcards</h1>
+      <p class="text-sm text-slate-500">Kingdom of Benin · Hard · <span x-text="cards.length"></span> cards</p>
+    </div>
+    <div class="flex items-center gap-4 text-base font-semibold text-slate-500">
+      <span>Card <span x-text="current + 1"></span> of <span x-text="cards.length"></span></span>
+      <span class="text-green-600">✓ <span x-text="correct"></span></span>
+      <span class="text-red-500">✗ <span x-text="incorrect"></span></span>
+      <span class="text-amber-600" title="Not covered in school">⊘ <span x-text="notCovered"></span></span>
+      <button @click="resetProgress()" class="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-100">Reset progress</button>
+    </div>
+  </header>
+
+  <!-- Progress bar -->
+  <div class="h-3 bg-white">
+    <div class="h-3 bg-purple-400 transition-all duration-300"
+         :style="`width: ${((current + 1) / cards.length) * 100}%`"></div>
+  </div>
+
+  <!-- Card area -->
+  <main class="flex flex-col items-center justify-center px-4 py-12 gap-8">
+
+    <!-- Flashcard -->
+    <div class="flip-card w-full max-w-2xl cursor-pointer" :class="{ flipped: revealed }" @click="reveal()">
+      <div class="flip-inner">
+
+        <!-- Front (Question) -->
+        <div class="flip-front bg-white rounded-3xl border-4 border-sky-300 p-8 flex flex-col justify-between shadow-xl">
+          <div class="flex items-start gap-3">
+            <span class="shrink-0 w-8 h-8 rounded-full bg-purple-500 text-white flex items-center justify-center text-base font-bold"
+                  x-text="deck[current] + 1"></span>
+            <p class="text-xl leading-relaxed text-slate-800" x-html="cards[current].q"></p>
+          </div>
+          <div x-show="cards[current].img" class="mt-4">
+            <img :src="cards[current].img" :alt="cards[current].imgAlt || 'Diagram'"
+                 class="rounded-lg max-h-40 mx-auto object-contain border-2 border-sky-200">
+          </div>
+          <p class="text-slate-400 text-sm text-center mt-4">Tap the card to see the answer 👆</p>
+        </div>
+
+        <!-- Back (Answer) -->
+        <div class="flip-back bg-amber-100 rounded-3xl border-4 border-amber-300 p-8 flex flex-col justify-between shadow-xl">
+          <div>
+            <p class="text-xs uppercase tracking-widest text-amber-700 mb-3 font-bold">Answer ✨</p>
+            <p class="text-xl leading-relaxed text-slate-800" x-html="cards[current].a"></p>
+          </div>
+          <p class="text-slate-500 text-sm text-center mt-4">How did you do? Choose below</p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Controls — hidden until revealed -->
+    <div x-show="revealed" x-transition class="flex flex-wrap justify-center gap-4">
+      <button @click="mark('wrong')"
+              class="flex items-center gap-2 px-6 py-3 text-lg text-white rounded-2xl bg-red-500 hover:bg-red-400 transition font-bold">
+        ✗ Not yet
+      </button>
+      <button @click="mark('skip')"
+              class="flex items-center gap-2 px-6 py-3 text-lg text-white rounded-2xl bg-amber-500 hover:bg-amber-400 transition font-bold">
+        ⊘ Not covered in school
+      </button>
+      <button @click="mark('correct')"
+              class="flex items-center gap-2 px-6 py-3 text-lg text-white rounded-2xl bg-green-500 hover:bg-green-400 transition font-bold">
+        ✓ Got it right!
+      </button>
+    </div>
+
+    <!-- Reveal button when not yet flipped -->
+    <div x-show="!revealed" x-transition>
+      <button @click="reveal()"
+              class="px-8 py-3 text-lg text-white rounded-2xl bg-purple-500 hover:bg-purple-400 transition font-bold">
+        Show Answer
+      </button>
+    </div>
+
+  </main>
+
+  <!-- Completion screen -->
+  <div x-show="done" x-transition
+       class="fixed inset-0 bg-sky-100/95 flex flex-col items-center justify-center gap-6 p-8">
+    <h2 class="text-4xl font-extrabold text-purple-600">🎉 Quiz Complete! Well done, Lavanya!</h2>
+    <div class="flex gap-8 text-2xl">
+      <div class="text-center"><p class="text-green-600 font-bold" x-text="correct"></p><p class="text-slate-500 text-sm">Correct</p></div>
+      <div class="text-center"><p class="text-red-500 font-bold" x-text="incorrect"></p><p class="text-slate-500 text-sm">Incorrect</p></div>
+      <div class="text-center"><p class="text-amber-600 font-bold" x-text="notCovered"></p><p class="text-slate-500 text-sm">Not covered</p></div>
+      <div class="text-center"><p class="text-purple-600 font-bold" x-text="scorePct() + '%'"></p><p class="text-slate-500 text-sm">Score (excl. not covered)</p></div>
+    </div>
+    <div class="flex gap-4">
+      <button @click="restart(false)"
+              class="px-6 py-3 text-lg text-white rounded-2xl bg-purple-500 hover:bg-purple-400 transition font-bold">
+        Restart All
+      </button>
+      <button @click="restart(true)" x-show="incorrect > 0"
+              class="px-6 py-3 text-lg text-white rounded-2xl bg-red-500 hover:bg-red-400 transition font-bold">
+        Retry Wrong Cards
+      </button>
+    </div>
+  </div>
+
+  <script>
+    function quiz() {
+      // Progress is saved in localStorage, keyed per quiz page. SIG changes if the cards change,
+      // so a regenerated quiz never loads stale progress. Every access is wrapped in try/catch
+      // because storage can be blocked (private window, file://, cleared site data).
+      const KEY = 'quiz-progress:' + location.pathname;
+      const SIG = CARDS.length + ':' + (CARDS[0] ? CARDS[0].q.slice(0, 40) : '');
+      const all = CARDS.map((_, i) => i);
+      return {
+        deck: all,            // indices into CARDS for the active run (all, or wrong-only retry)
+        cards: CARDS,
+        current: 0,
+        revealed: false,
+        correct: 0,
+        incorrect: 0,
+        notCovered: 0,        // cards marked "not covered in school" — excluded from score and retry
+        done: false,
+        wrongIdx: [],         // indices into CARDS answered wrong this run
+        skipIdx: [],          // indices into CARDS marked not covered this run
+
+        init() {
+          this.load();
+          this.$watch('current', () => this.$nextTick(() => this.renderMath()));
+          this.$nextTick(() => this.renderMath());
+        },
+        save() {
+          try {
+            localStorage.setItem(KEY, JSON.stringify({
+              sig: SIG, deck: this.deck, current: this.current, revealed: this.revealed,
+              correct: this.correct, incorrect: this.incorrect, notCovered: this.notCovered, done: this.done,
+              wrongIdx: this.wrongIdx, skipIdx: this.skipIdx
+            }));
+          } catch (e) { /* storage unavailable — quiz still works, just not remembered */ }
+        },
+        load() {
+          try {
+            const s = JSON.parse(localStorage.getItem(KEY));
+            const valid = s && s.sig === SIG && Array.isArray(s.deck) && s.deck.length
+              && s.deck.every(i => CARDS[i]) && Array.isArray(s.wrongIdx);
+            if (!valid) return;
+            this.deck = s.deck;
+            this.cards = s.deck.map(i => CARDS[i]);
+            this.current = Math.min(Math.max(s.current | 0, 0), this.cards.length - 1);
+            this.revealed = !!s.revealed;
+            this.correct = s.correct | 0;
+            this.incorrect = s.incorrect | 0;
+            this.notCovered = s.notCovered | 0;
+            this.skipIdx = Array.isArray(s.skipIdx) ? s.skipIdx : [];
+            this.done = !!s.done;
+            this.wrongIdx = s.wrongIdx;
+          } catch (e) { /* ignore corrupt or unavailable storage */ }
+        },
+        resetProgress() {
+          try { localStorage.removeItem(KEY); } catch (e) {}
+          this.restart(false);
+        },
+        renderMath() {
+          if (window.renderMathInElement) {
+            renderMathInElement(this.$el, {
+              delimiters: [
+                { left: '$$', right: '$$', display: true },
+                { left: '$', right: '$', display: false }
+              ],
+              throwOnError: false
+            });
+          }
+        },
+        reveal() {
+          this.revealed = true;
+          this.save();
+          this.$nextTick(() => this.renderMath());
+        },
+        mark(result) {   // 'correct' | 'wrong' | 'skip' (not covered in school)
+          const idx = this.deck[this.current];
+          if (result === 'correct') this.correct++;
+          else if (result === 'skip') { this.notCovered++; this.skipIdx.push(idx); }
+          else { this.incorrect++; this.wrongIdx.push(idx); }
+          this.next();
+        },
+        scorePct() {
+          const attempted = this.cards.length - this.notCovered;
+          return attempted > 0 ? Math.round((this.correct / attempted) * 100) : 0;
+        },
+        next() {
+          if (this.current < this.cards.length - 1) {
+            this.current++;
+            this.revealed = false;
+          } else {
+            this.done = true;
+          }
+          this.save();
+        },
+        restart(wrongOnly) {
+          this.deck = wrongOnly ? [...this.wrongIdx] : all;
+          this.cards = this.deck.map(i => CARDS[i]);
+          this.current = 0;
+          this.revealed = false;
+          this.correct = 0;
+          this.incorrect = 0;
+          this.notCovered = 0;
+          this.done = false;
+          this.wrongIdx = [];
+          this.skipIdx = [];
+          this.save();
+          this.$nextTick(() => this.renderMath());
+        }
+      }
+    }
+
+    const CARDS = [
+      { q: "Where was the <strong>Kingdom of Benin</strong>? Name the modern country, and say if it is the same place as the country called Benin today. 🌍", a: "It was in the south of <strong>Nigeria</strong>, West Africa, and its people were the <strong>Edo</strong>. It is <strong>not</strong> the same as the modern country of Benin, which is next door. The kingdom&apos;s capital was <strong>Benin City</strong>." },
+      { q: "What was the title of the king of Benin? 👑", a: "The king was called the <strong>Oba</strong>. The Oba was the ruler, and people also believed he had a special link to the spirits of the ancestors." },
+      { q: "The Kingdom of Benin lasted for hundreds of years. Roughly which <strong>century</strong> did it become powerful, and was this before or after the Romans in Britain?", a: "It grew powerful in the <strong>1400s (15th century)</strong>, under Oba <strong>Ewuare the Great</strong>. This was <strong>after</strong> the Romans, and even after the Anglo-Saxons and Vikings, so it was around the same time as the Middle Ages in England. ⏳" },
+      { q: "Benin City was protected by huge <strong>walls and ditches</strong> (called earthworks). Why do you think the Oba&apos;s people built them? Give a reason. 🧱", a: "To <strong>defend</strong> the city from enemies <strong>and</strong> to mark out the city&apos;s boundary. The walls were enormous. Some experts say they were among the largest earthworks in the world, built by hand, so the kingdom must have been <strong>well organised</strong> with lots of workers." },
+      { q: "What are the <strong>Benin Bronzes</strong>? 🎨", a: "They are thousands of beautiful <strong>sculptures and plaques</strong> made by Benin&apos;s skilled metal workers. They show the Oba, warriors, queen mothers, animals and daily life. Many are really made of <strong>brass</strong>, not bronze!" },
+      { q: "The Benin Bronzes were cast using the <strong>lost-wax</strong> method. Put these steps in order: A) pour in melted metal, B) make a wax model, C) cover the wax in clay, D) melt the wax out. 🔥", a: "<strong>B, C, D, A.</strong><br>• Make a wax model<br>• Cover it in clay<br>• Heat it so the wax melts and runs out, leaving a hollow mould<br>• Pour in melted metal, let it cool, then break off the clay." },
+      { q: "Why are the Benin Bronzes useful to <strong>historians</strong>? Are they a primary or a secondary source? 🔍", a: "They are <strong>primary sources</strong> because they were made at the time. They show what clothes, weapons and ceremonies looked like, and how the Oba and people lived. They help because many Edo stories were passed on by speaking, not by writing." },
+      { q: "In 1485 people from a European country arrived in Benin by sea to trade. Which country, and what did they trade? ⛵", a: "The <strong>Portuguese</strong> came. Benin traded <strong>ivory, pepper</strong> and cloth. In return, Benin received goods like <strong>brass bracelets (manillas)</strong>, coral beads and cloth. Brass was very important for the metal workers." },
+      { q: "Who were the <strong>guilds</strong> in Benin? Give an example of a guild&apos;s work. 🛠️", a: "Guilds were <strong>groups of skilled craftspeople</strong> who worked for the Oba. There were guilds of <strong>brass-casters</strong>, ivory carvers, leather workers and woodcarvers. Only guild members were allowed to make royal art, which helped keep the skills in the family." },
+      { q: "Who was the <strong>Iyoba</strong>, and why was she important? 👸", a: "The <strong>Iyoba</strong> was the <strong>queen mother</strong>, the mother of the Oba. She had her own palace and was very powerful. The first Iyoba, <strong>Idia</strong>, was famous for helping her son Oba Esigie as a leader. Carved ivory masks of her face are very famous." },
+      { q: "What happened to Benin City in <strong>1897</strong>? Explain why this was unfair. ⚔️", a: "A British army <strong>attacked and burned</strong> Benin City and took the Oba, Ovonramwen, away to exile. The soldiers <strong>took thousands of the bronzes</strong> and other treasures. It was unfair because the objects belonged to the people of Benin and were taken by force." },
+      { q: "Where are many of the Benin Bronzes now? Why do some people say they should go home? 🏛️", a: "Many are in museums in <strong>Europe and America</strong>, such as the <strong>British Museum</strong> in London. People say they should be <strong>returned (restituted)</strong> to Nigeria because they were taken without permission and are part of the Edo people&apos;s history. Some museums have started giving objects back." },
+      { q: "<strong>Compare:</strong> Look at the two ideas, a museum keeps the bronzes OR returns them to Nigeria. Give one reason for each side. ⚖️", a: "<strong>Keep:</strong> lots of visitors from all over the world can see them in one place.<br><strong>Return:</strong> they were taken unfairly, and people in Nigeria want to see their own history at home.<br>Good historians look at <strong>both sides</strong> before they decide!" },
+      { q: "<strong>Big thinking:</strong> Some people used to say Africa had no great kingdoms before Europeans came. How does the Kingdom of Benin show this was <strong>wrong</strong>? 💡", a: "Benin had a <strong>strong ruler, a big walled city, skilled artists, trade with other countries</strong> and an organised government, hundreds of years before 1897. This is clear <strong>evidence</strong> of a rich, advanced civilisation, which is why we learn about it in Black History Month. ✨" }
+    ];
+  </script>
+</body>
+</html>
