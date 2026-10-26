@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Geography — Climate &amp; Weather Hazards List Quiz</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>[x-cloak] { display: none !important; }</style>
+</head>
+<body class="bg-slate-900 min-h-screen text-white" x-data="listQuiz()" x-cloak>
+
+  <!-- Header -->
+  <header class="bg-slate-800 border-b border-slate-700 px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h1 class="text-xl font-bold">Geography List Quiz</h1>
+      <p class="text-sm text-slate-400">Climate change &amp; weather hazards · Hard · <span x-text="deck.length"></span> questions</p>
+    </div>
+    <div class="flex items-center gap-4 text-sm text-slate-400">
+      <span>Q <span x-text="current + 1"></span> of <span x-text="deck.length"></span></span>
+      <span class="text-green-400"><span x-text="earned()"></span> / <span x-text="available()"></span> marks</span>
+      <span class="text-amber-400" title="Not covered in school">⊘ <span x-text="skipIdx.length"></span></span>
+      <button @click="resetProgress()" class="text-xs px-2 py-1 rounded border border-slate-600 hover:bg-slate-700">Reset progress</button>
+    </div>
+  </header>
+
+  <div class="h-1 bg-slate-700">
+    <div class="h-1 bg-indigo-500 transition-all duration-300" :style="`width: ${((current + (submitted ? 1 : 0)) / deck.length) * 100}%`"></div>
+  </div>
+
+  <main class="flex flex-col items-center px-4 py-8 gap-6">
+    <div class="w-full max-w-3xl bg-slate-800 rounded-2xl border border-slate-700 p-6 sm:p-8 shadow-xl">
+      <div class="flex items-start gap-3">
+        <span class="shrink-0 w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-sm font-bold" x-text="qi + 1"></span>
+        <div>
+          <p class="text-lg leading-relaxed" x-html="q.q"></p>
+          <p class="text-sm text-slate-400 mt-1">
+            <span class="font-semibold text-indigo-300">[<span x-text="q.marks"></span> marks]</span>
+            Select everything that applies · each correct <span class="text-green-400">+1</span>, each wrong <span class="text-red-400">−1</span> (minimum 0, maximum <span x-text="q.marks"></span>)
+          </p>
+        </div>
+      </div>
+
+      <!-- Options -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6">
+        <template x-for="i in shuffled" :key="qi + '-' + i">
+          <button @click="toggle(i)" :disabled="submitted"
+                  class="text-left px-4 py-3 rounded-xl border transition text-sm sm:text-base"
+                  :class="{
+                    'bg-slate-700 border-slate-600 hover:bg-slate-600': optState(i) === 'idle',
+                    'bg-indigo-700 border-indigo-400': optState(i) === 'sel',
+                    'bg-green-800 border-green-400': optState(i) === 'hit',
+                    'bg-red-900 border-red-400': optState(i) === 'wrong',
+                    'bg-slate-700 border-amber-400 border-dashed': optState(i) === 'missed'
+                  }">
+            <span x-text="q.opts[i].t"></span>
+            <span x-show="optState(i) === 'hit'" class="float-right text-green-300">✓ +1</span>
+            <span x-show="optState(i) === 'wrong'" class="float-right text-red-300">✗ −1</span>
+            <span x-show="optState(i) === 'missed'" class="float-right text-amber-300 text-xs">valid point</span>
+          </button>
+        </template>
+      </div>
+
+      <!-- Feedback -->
+      <div x-show="submitted" x-transition class="mt-6 border-t border-slate-700 pt-4">
+        <p class="text-2xl font-bold">
+          <span :class="score() === q.marks ? 'text-green-400' : (score() === 0 ? 'text-red-400' : 'text-yellow-400')" x-text="score()"></span>
+          <span class="text-slate-400"> / <span x-text="q.marks"></span></span>
+        </p>
+        <p class="text-sm text-slate-300 mt-1">
+          <span x-text="okPicks()"></span> correct picked<span x-show="wrongPicks() > 0">, <span class="text-red-300" x-text="wrongPicks()"></span> wrong picked (−<span x-text="wrongPicks()"></span>)</span>.
+          <span x-show="q.opts.filter(o => o.ok).length > q.marks">Any <span x-text="q.marks"></span> valid points earn full marks.</span>
+        </p>
+        <p class="text-sm text-slate-400 mt-3" x-show="q.tip" x-html="'💡 ' + q.tip"></p>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="flex flex-wrap justify-center gap-4">
+      <button x-show="!submitted" @click="submit()" :disabled="sel.length === 0"
+              class="px-8 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 transition font-semibold disabled:opacity-40">Submit answer</button>
+      <button x-show="!submitted" @click="skip()"
+              class="px-6 py-3 rounded-xl bg-amber-600 hover:bg-amber-500 transition font-semibold">⊘ Not covered in school</button>
+      <button x-show="submitted" @click="next()"
+              class="px-8 py-3 rounded-xl bg-green-600 hover:bg-green-500 transition font-semibold"
+              x-text="current < deck.length - 1 ? 'Next question →' : 'Finish'"></button>
+    </div>
+  </main>
+
+  <!-- Completion screen -->
+  <div x-show="done" x-transition class="fixed inset-0 bg-slate-900/95 flex flex-col items-center justify-center gap-6 p-8 overflow-y-auto">
+    <h2 class="text-3xl font-bold">Quiz Complete!</h2>
+    <div class="flex flex-wrap justify-center gap-8 text-2xl">
+      <div class="text-center"><p class="text-green-400 font-bold"><span x-text="earned()"></span> / <span x-text="available()"></span></p><p class="text-slate-400 text-sm">Marks</p></div>
+      <div class="text-center"><p class="text-yellow-400 font-bold" x-text="scorePct() + '%'"></p><p class="text-slate-400 text-sm">Score (excl. not covered)</p></div>
+      <div class="text-center"><p class="text-red-400 font-bold" x-text="weakIdx.length"></p><p class="text-slate-400 text-sm">Not full marks</p></div>
+      <div class="text-center"><p class="text-amber-400 font-bold" x-text="skipIdx.length"></p><p class="text-slate-400 text-sm">Not covered</p></div>
+    </div>
+    <div class="flex gap-4">
+      <button @click="restart(false)" class="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 transition font-semibold">Restart All</button>
+      <button @click="restart(true)" x-show="weakIdx.length > 0" class="px-6 py-3 rounded-xl bg-red-700 hover:bg-red-600 transition font-semibold">Retry questions without full marks</button>
+    </div>
+  </div>
+
+  <script>
+    function listQuiz() {
+      // Progress is saved in localStorage per quiz page. SIG changes if the questions change, so a
+      // regenerated quiz never loads stale progress. Every access is wrapped in try/catch because
+      // storage can be blocked (private window, file://, cleared site data).
+      const KEY = 'listquiz-progress:' + location.pathname;
+      const SIG = QUESTIONS.length + ':' + (QUESTIONS[0] ? QUESTIONS[0].q.slice(0, 40) : '');
+      const all = QUESTIONS.map((_, i) => i);
+      // Deterministic shuffle so option order is stable per question across refreshes.
+      function order(qi, n) {
+        let s = ((qi + 1) * 2654435761) >>> 0;
+        const a = [...Array(n).keys()];
+        for (let i = n - 1; i > 0; i--) {
+          s = (s * 1664525 + 1013904223) >>> 0;
+          const j = s % (i + 1);
+          [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+      }
+      return {
+        deck: all,          // indices into QUESTIONS for the active run (all, or retry-weak only)
+        current: 0,
+        sel: [],            // selected option indices for the current question
+        submitted: false,
+        scores: {},         // question index -> marks earned this run
+        weakIdx: [],        // questions answered without full marks this run
+        skipIdx: [],        // questions marked not covered this run
+        done: false,
+
+        get qi() { return this.deck[this.current]; },
+        get q() { return QUESTIONS[this.qi]; },
+        get shuffled() { return order(this.qi, this.q.opts.length); },
+
+        init() { this.load(); },
+        save() {
+          try {
+            localStorage.setItem(KEY, JSON.stringify({
+              sig: SIG, deck: this.deck, current: this.current, sel: this.sel, submitted: this.submitted,
+              scores: this.scores, weakIdx: this.weakIdx, skipIdx: this.skipIdx, done: this.done
+            }));
+          } catch (e) { /* storage unavailable — quiz still works, just not remembered */ }
+        },
+        load() {
+          try {
+            const s = JSON.parse(localStorage.getItem(KEY));
+            const valid = s && s.sig === SIG && Array.isArray(s.deck) && s.deck.length
+              && s.deck.every(i => QUESTIONS[i]) && Array.isArray(s.sel);
+            if (!valid) return;
+            this.deck = s.deck;
+            this.current = Math.min(Math.max(s.current | 0, 0), s.deck.length - 1);
+            this.sel = s.sel;
+            this.submitted = !!s.submitted;
+            this.scores = s.scores || {};
+            this.weakIdx = Array.isArray(s.weakIdx) ? s.weakIdx : [];
+            this.skipIdx = Array.isArray(s.skipIdx) ? s.skipIdx : [];
+            this.done = !!s.done;
+          } catch (e) { /* ignore corrupt or unavailable storage */ }
+        },
+        resetProgress() {
+          try { localStorage.removeItem(KEY); } catch (e) {}
+          this.restart(false);
+        },
+
+        okPicks() { return this.sel.filter(i => this.q.opts[i].ok).length; },
+        wrongPicks() { return this.sel.length - this.okPicks(); },
+        score() { return Math.max(0, Math.min(this.q.marks, this.okPicks() - this.wrongPicks())); },
+        optState(i) {
+          const picked = this.sel.includes(i), ok = this.q.opts[i].ok;
+          if (!this.submitted) return picked ? 'sel' : 'idle';
+          if (picked) return ok ? 'hit' : 'wrong';
+          return ok ? 'missed' : 'idle';
+        },
+        toggle(i) {
+          if (this.submitted) return;
+          const k = this.sel.indexOf(i);
+          if (k < 0) this.sel.push(i); else this.sel.splice(k, 1);
+          this.save();
+        },
+        submit() {
+          if (this.submitted || this.sel.length === 0) return;
+          const sc = this.score();
+          this.scores[this.qi] = sc;
+          if (sc < this.q.marks) this.weakIdx.push(this.qi);
+          this.submitted = true;
+          this.save();
+        },
+        skip() {
+          this.skipIdx.push(this.qi);
+          this.next();
+        },
+        next() {
+          this.sel = [];
+          this.submitted = false;
+          if (this.current < this.deck.length - 1) this.current++;
+          else this.done = true;
+          this.save();
+        },
+        earned() { return Object.values(this.scores).reduce((a, b) => a + b, 0); },
+        available() { return Object.keys(this.scores).reduce((a, k) => a + QUESTIONS[k].marks, 0); },
+        scorePct() { const a = this.available(); return a > 0 ? Math.round((this.earned() / a) * 100) : 0; },
+        restart(weakOnly) {
+          this.deck = weakOnly ? [...this.weakIdx] : all;
+          this.current = 0;
+          this.sel = [];
+          this.submitted = false;
+          this.scores = {};
+          this.weakIdx = [];
+          this.skipIdx = [];
+          this.done = false;
+          this.save();
+        }
+      };
+    }
+
+    // marks = maximum for the question. opts: ok:true = valid point, ok:false = distractor.
+    // If there are more valid points than marks, any `marks` of them earn full marks.
+    const QUESTIONS = [
+      { q: "Quaternary Period — select the <strong>true</strong> statements.", marks: 4, opts: [
+        { t: "It spans roughly the last 2.6 million years to the present", ok: true },
+        { t: "It is marked by repeated glacial and interglacial cycles", ok: true },
+        { t: "The Holocene is the current interglacial epoch (began ~12,000 years ago)", ok: true },
+        { t: "The Pleistocene ran from ~2 million to ~12,000 years ago", ok: true },
+        { t: "The Holocene began 2.6 million years ago", ok: false },
+        { t: "The Quaternary is part of the Mesozoic Era", ok: false },
+        { t: "We are currently in a glacial period", ok: false },
+        { t: "The Pleistocene is the current epoch", ok: false }
+      ], tip: "Quaternary → Cenozoic Era. Two epochs: Pleistocene then Holocene (now)." },
+
+      { q: "Which are types of <strong>evidence</strong> for past and present climate change?", marks: 5, opts: [
+        { t: "Ice cores (trapped air bubbles / isotopes)", ok: true },
+        { t: "Sediment cores", ok: true },
+        { t: "Tree rings (width / density)", ok: true },
+        { t: "The Keeling Curve (atmospheric CO₂ record)", ok: true },
+        { t: "Instrumental temperature records", ok: true },
+        { t: "Photographs of glacier retreat over time", ok: true },
+        { t: "Earthquake magnitude records", ok: false },
+        { t: "Census population data", ok: false },
+        { t: "Soil pH surveys of farmland", ok: false }
+      ], tip: "Six valid types, any 5 earn full marks. Also be ready to say which is most reliable and why." },
+
+      { q: "Carbon cycle — select the carbon <strong>stores</strong> (not flows).", marks: 4, opts: [
+        { t: "Atmosphere", ok: true },
+        { t: "Oceans", ok: true },
+        { t: "Biosphere (plants and animals)", ok: true },
+        { t: "Lithosphere (rocks, fossil fuels)", ok: true },
+        { t: "Photosynthesis", ok: false },
+        { t: "Combustion", ok: false },
+        { t: "Respiration", ok: false },
+        { t: "Decomposition", ok: false }
+      ], tip: "Stores = places carbon sits. Flows = processes moving it between stores." },
+
+      { q: "Carbon cycle — select the <strong>flows</strong> (processes), not stores.", marks: 4, opts: [
+        { t: "Photosynthesis", ok: true },
+        { t: "Respiration", ok: true },
+        { t: "Combustion", ok: true },
+        { t: "Decomposition", ok: true },
+        { t: "Ocean absorption / release of CO₂", ok: true },
+        { t: "Atmosphere", ok: false },
+        { t: "Lithosphere", ok: false },
+        { t: "Condensation", ok: false },
+        { t: "Longshore drift", ok: false }
+      ], tip: "Five valid flows, any 4 earn full marks." },
+
+      { q: "Which <strong>human</strong> activities disrupt the carbon cycle?", marks: 2, opts: [
+        { t: "Burning fossil fuels", ok: true },
+        { t: "Deforestation", ok: true },
+        { t: "Planting new forests", ok: false },
+        { t: "Volcanic eruptions", ok: false },
+        { t: "Reducing car use", ok: false },
+        { t: "Tree-ring growth", ok: false }
+      ], tip: "Carbon is released faster than natural sinks can absorb it. Volcanoes are natural, not human." },
+
+      { q: "<strong>Low-pressure</strong> systems — select the associated features.", marks: 3, opts: [
+        { t: "Rising air", ok: true },
+        { t: "Cloud and precipitation", ok: true },
+        { t: "Tropical storms", ok: true },
+        { t: "Sinking air", ok: false },
+        { t: "Clear skies", ok: false },
+        { t: "Drought / heatwave conditions", ok: false }
+      ], tip: "Contrast with high pressure: sinking air, clear skies, drought/heatwave." },
+
+      { q: "<strong>High-pressure</strong> systems — select the associated features.", marks: 3, opts: [
+        { t: "Sinking air", ok: true },
+        { t: "Clear skies", ok: true },
+        { t: "Can bring drought / heatwave conditions", ok: true },
+        { t: "Rising air", ok: false },
+        { t: "Heavy precipitation", ok: false },
+        { t: "Tropical storm formation", ok: false }
+      ] },
+
+      { q: "<strong>Tropical storms</strong> — select the factors involved in their formation.", marks: 4, opts: [
+        { t: "Warm ocean water", ok: true },
+        { t: "Warm, moist air rising", ok: true },
+        { t: "Cooling and condensation releasing latent heat", ok: true },
+        { t: "Coriolis effect (gives the spin)", ok: true },
+        { t: "Cold ocean water", ok: false },
+        { t: "Sinking dry air", ok: false },
+        { t: "Persistent high pressure", ok: false },
+        { t: "Formation over land masses", ok: false }
+      ], tip: "Latent heat is what fuels the storm. For frequency/intensity change: warmer sea surface temperatures from climate change." },
+
+      { q: "<strong>Hurricane Matthew, Haiti (2016)</strong> — select the impacts on <strong>people</strong>.", marks: 4, opts: [
+        { t: "Deaths", ok: true },
+        { t: "Injuries", ok: true },
+        { t: "Displacement", ok: true },
+        { t: "Disease risk (e.g. cholera)", ok: true },
+        { t: "Damage to agriculture", ok: false },
+        { t: "Damage to infrastructure", ok: false },
+        { t: "Habitat / coastal damage", ok: false }
+      ], tip: "AO1: split consequences by category — people, economy, environment." },
+
+      { q: "<strong>Hurricane Matthew, Haiti (2016)</strong> — select the <strong>economic</strong> impacts.", marks: 3, opts: [
+        { t: "Damage to agriculture", ok: true },
+        { t: "Damage to infrastructure", ok: true },
+        { t: "Loss of livelihoods", ok: true },
+        { t: "Deaths and injuries", ok: false },
+        { t: "Cholera outbreaks", ok: false },
+        { t: "Habitat / coastal damage", ok: false }
+      ] },
+
+      { q: "<strong>Hurricane Matthew, Haiti (2016)</strong> — select the <strong>environmental</strong> impacts.", marks: 3, opts: [
+        { t: "Flooding", ok: true },
+        { t: "Landslides", ok: true },
+        { t: "Habitat / coastal damage", ok: true },
+        { t: "Displacement of people", ok: false },
+        { t: "Loss of livelihoods", ok: false },
+        { t: "Cholera outbreaks", ok: false }
+      ] },
+
+      { q: "Which were <strong>responses</strong> to Hurricane Matthew in Haiti?", marks: 3, opts: [
+        { t: "Emergency aid", ok: true },
+        { t: "International relief efforts", ok: true },
+        { t: "Longer-term rebuilding", ok: true },
+        { t: "Heat-health warnings", ok: false },
+        { t: "Hosepipe bans", ok: false },
+        { t: "Building a drought-relief reservoir", ok: false }
+      ], tip: "For an AO3 'evaluate' question, you would then weigh how effective each response was." },
+
+      { q: "<strong>UK Heatwave (2022)</strong> — select the <strong>causes</strong>.", marks: 3, opts: [
+        { t: "Persistent high pressure (dry, sinking air, clear skies)", ok: true },
+        { t: "Shifts in the jet stream", ok: true },
+        { t: "Amplified by climate change", ok: true },
+        { t: "Warm-ocean-fuelled low pressure", ok: false },
+        { t: "A major volcanic eruption", ok: false },
+        { t: "Rising air and heavy rainfall", ok: false }
+      ] },
+
+      { q: "<strong>UK Heatwave (2022)</strong> — select the <strong>consequences</strong>.", marks: 5, opts: [
+        { t: "Heat-related illness / deaths", ok: true },
+        { t: "Disruption to transport and services", ok: true },
+        { t: "Crop damage", ok: true },
+        { t: "Infrastructure damage (e.g. buckled railways / roads)", ok: true },
+        { t: "Wildfires", ok: true },
+        { t: "Water shortages", ok: true },
+        { t: "Ecological stress", ok: true },
+        { t: "Storm-surge flooding of coastal cities", ok: false },
+        { t: "Landslides", ok: false },
+        { t: "Cholera outbreaks", ok: false }
+      ], tip: "Seven valid points, any 5 earn full marks. Group them: social, economic, environmental." },
+
+      { q: "<strong>UK Heatwave (2022)</strong> — select the <strong>responses</strong>.", marks: 3, opts: [
+        { t: "Heat-health warnings", ok: true },
+        { t: "Infrastructure adaptations", ok: true },
+        { t: "Public health guidance", ok: true },
+        { t: "International emergency food aid", ok: false },
+        { t: "Evacuating coastal areas", ok: false },
+        { t: "Building hurricane shelters", ok: false }
+      ] },
+
+      { q: "<em>\"HICs are better able to cope with high-pressure hazards than LICs. How far do you agree?\"</em><br>Select the points you would <strong>weigh</strong> in your answer.", marks: 5, opts: [
+        { t: "Financial resources", ok: true },
+        { t: "Technology and infrastructure", ok: true },
+        { t: "Early-warning systems", ok: true },
+        { t: "Healthcare capacity", ok: true },
+        { t: "Differences in exposure and vulnerability", ok: true },
+        { t: "Length of coastline", ok: false },
+        { t: "Number of national parks", ok: false },
+        { t: "Time zone", ok: false }
+      ], tip: "8-mark AO3: build a balanced PEEL-paragraph answer, weigh both sides, then reach a judgement." },
+
+      { q: "<strong>AO4:</strong> describing the Europe water-scarcity projection maps — what should you refer to?", marks: 4, opts: [
+        { t: "% change per decade in runoff", ok: true },
+        { t: "Comparison of 2041–2070 with 2071–2100", ok: true },
+        { t: "\"Business as usual\" emissions scenario", ok: true },
+        { t: "Increasing drought frequency", ok: true },
+        { t: "Richter scale values", ok: false },
+        { t: "Hurricane track dates", ok: false },
+        { t: "Earthquake epicentres", ok: false }
+      ], tip: "AO4 credit comes only from correctly using the resource given: quote the key, scale and data." }
+    ];
+  </script>
+</body>
+</html>
