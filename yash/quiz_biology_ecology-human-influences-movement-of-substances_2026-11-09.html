@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Biology — Ecology, Human Influences and Movement of Substances Quiz</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+    .flip-card { perspective: 1000px; }
+    .flip-inner { transition: transform 0.5s; transform-style: preserve-3d; display: grid; }
+    .flipped .flip-inner { transform: rotateY(180deg); }
+    .flip-front, .flip-back { backface-visibility: hidden; -webkit-backface-visibility: hidden; grid-area: 1 / 1; }
+    .flip-back { transform: rotateY(180deg); }
+  </style>
+</head>
+<body class="bg-slate-900 min-h-screen text-white" x-data="quiz()" x-cloak>
+
+  <header class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex items-center justify-between">
+    <div>
+      <h1 class="text-xl font-bold text-white">Biology Flashcards</h1>
+      <p class="text-sm text-slate-400">Ecology, Human influences, Movement of substances · Hard · <span x-text="cards.length"></span> cards</p>
+    </div>
+    <div class="flex items-center gap-4 text-sm text-slate-400">
+      <span>Card <span x-text="current + 1"></span> of <span x-text="cards.length"></span></span>
+      <span class="text-green-400">✓ <span x-text="correct"></span></span>
+      <span class="text-red-400">✗ <span x-text="incorrect"></span></span>
+      <button @click="resetProgress()" class="text-xs px-2 py-1 rounded border border-slate-600 hover:bg-slate-700">Reset progress</button>
+    </div>
+  </header>
+
+  <div class="h-1 bg-slate-700">
+    <div class="h-1 bg-indigo-500 transition-all duration-300"
+         :style="`width: ${((current + 1) / cards.length) * 100}%`"></div>
+  </div>
+
+  <main class="flex flex-col items-center justify-center px-4 py-12 gap-8">
+    <div class="flip-card w-full max-w-2xl cursor-pointer" :class="{ flipped: revealed }" @click="reveal()">
+      <div class="flip-inner">
+        <div class="flip-front bg-slate-800 rounded-2xl border border-slate-700 p-8 flex flex-col justify-between shadow-xl">
+          <div class="flex items-start gap-3">
+            <span class="shrink-0 w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-sm font-bold"
+                  x-text="current + 1"></span>
+            <p class="text-lg leading-relaxed text-white" x-html="cards[current].q"></p>
+          </div>
+          <p class="text-slate-500 text-sm text-center mt-4">Click to reveal answer</p>
+        </div>
+        <div class="flip-back bg-indigo-900 rounded-2xl border border-indigo-700 p-8 flex flex-col justify-between shadow-xl">
+          <div>
+            <p class="text-xs uppercase tracking-widest text-indigo-400 mb-3 font-semibold">Answer</p>
+            <p class="text-lg leading-relaxed text-white" x-html="cards[current].a"></p>
+          </div>
+          <p class="text-slate-400 text-sm text-center mt-4">Mark yourself below</p>
+        </div>
+      </div>
+    </div>
+
+    <div x-show="revealed" x-transition class="flex gap-4">
+      <button @click="mark(false)" class="flex items-center gap-2 px-6 py-3 rounded-xl bg-red-600 hover:bg-red-500 transition font-semibold">✗ Got it wrong</button>
+      <button @click="mark(true)" class="flex items-center gap-2 px-6 py-3 rounded-xl bg-green-600 hover:bg-green-500 transition font-semibold">✓ Got it right</button>
+    </div>
+    <div x-show="!revealed" x-transition>
+      <button @click="reveal()" class="px-8 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 transition font-semibold">Show Answer</button>
+    </div>
+  </main>
+
+  <div x-show="done" x-transition class="fixed inset-0 bg-slate-900/95 flex flex-col items-center justify-center gap-6 p-8">
+    <h2 class="text-3xl font-bold">Quiz Complete!</h2>
+    <div class="flex gap-8 text-2xl">
+      <div class="text-center"><p class="text-green-400 font-bold" x-text="correct"></p><p class="text-slate-400 text-sm">Correct</p></div>
+      <div class="text-center"><p class="text-red-400 font-bold" x-text="incorrect"></p><p class="text-slate-400 text-sm">Incorrect</p></div>
+      <div class="text-center"><p class="text-yellow-400 font-bold" x-text="Math.round((correct/cards.length)*100) + '%'"></p><p class="text-slate-400 text-sm">Score</p></div>
+    </div>
+    <div class="flex gap-4">
+      <button @click="restart(false)" class="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 transition font-semibold">Restart All</button>
+      <button @click="restart(true)" x-show="incorrect > 0" class="px-6 py-3 rounded-xl bg-red-700 hover:bg-red-600 transition font-semibold">Retry Wrong Cards</button>
+    </div>
+  </div>
+
+  <script>
+    const CARDS = [
+  {
+    "q": "Define the terms <strong>population</strong>, <strong>community</strong> and <strong>ecosystem</strong>, using a pond as your example.",
+    "a": "<strong>Population</strong>: all the organisms of <em>one species</em> in an area at a given time (e.g. all the tadpoles in the pond).<br><strong>Community</strong>: the populations of <em>all the species</em> living in the area at a given time.<br><strong>Ecosystem</strong>: a community of organisms <em>together with</em> their physical (abiotic) environment, interacting as a self-supporting unit (e.g. the whole pond including water and mud)."
+  },
+  {
+    "q": "Two woodlands each contain 5 species and 50 individuals. In woodland 1 each species has 10 individuals. In woodland 2 one species has 46 individuals and the other four have 1 each.<br>Which has the higher <strong>biodiversity</strong> and why? (Biology only)",
+    "a": "<strong>Woodland 1.</strong> Biodiversity combines <strong>species richness</strong> (number of species, equal here) and <strong>evenness</strong> (relative abundance of each species). Woodland 1 is evenly spread; woodland 2 is dominated by one species, so it has lower biodiversity.<br><em>Tip: high biodiversity ecosystems are usually more stable, as loss of one species can be offset by others.</em>"
+  },
+  {
+    "q": "A student compares the number of dandelions in a trampled area and an untrampled area using quadrats. Describe how to obtain <strong>valid, reliable</strong> data.",
+    "a": "• Lay two tape measures at right angles to make a grid.<br>• Use <strong>random number pairs</strong> as coordinates for placing each quadrat (avoids bias; do not throw the quadrat).<br>• Count the dandelions in each quadrat; use the <strong>same size</strong> quadrat in both areas.<br>• Use a <strong>large sample</strong> (e.g. 10 or more quadrats per area) and calculate the <strong>mean number per m<sup>2</sup></strong> for each area.<br>• More quadrats improves reliability."
+  },
+  {
+    "q": "Distinguish between <strong>biotic</strong> and <strong>abiotic</strong> factors. Give <strong>two</strong> of each that could affect the distribution of an organism in a river.",
+    "a": "<strong>Biotic</strong> = caused by living organisms; <strong>abiotic</strong> = non-living physical or chemical factors.<br>Biotic: predation, parasitism, disease, competition for food.<br>Abiotic: flow rate, dissolved oxygen concentration, pH, temperature, depth, pollution, mineral concentration."
+  },
+  {
+    "q": "A food chain is: grass &rarr; grasshopper &rarr; lizard &rarr; snake.<br>(a) What does an arrow represent?<br>(b) Name the trophic level of each organism.<br>(c) Why are decomposers not shown in a food chain or food web?",
+    "a": "(a) The arrow means <strong>&quot;is eaten by&quot;</strong> and shows the <strong>direction of energy flow</strong>.<br>(b) Grass = <strong>producer</strong>; grasshopper = <strong>primary consumer</strong> (herbivore); lizard = <strong>secondary consumer</strong>; snake = <strong>tertiary consumer</strong> (top carnivore).<br>(c) Food chains show feeding relationships between living organisms; decomposers act on dead material and waste at every level, so they are usually omitted (a limitation of food webs)."
+  },
+  {
+    "q": "The pyramid of <strong>number</strong> for oak tree &rarr; aphids &rarr; ladybirds &rarr; birds is not a pyramid shape. Explain why. What kind of pyramid would give the expected shape and why?",
+    "a": "One huge oak tree supports thousands of aphids, so the number at level 2 is greater than at level 1: the pyramid is <strong>inverted/irregular</strong>, because number pyramids ignore the <strong>size</strong> of organisms. (Parasites on a host can also invert it.)<br>A <strong>pyramid of biomass</strong> (dry mass at each level) would be the expected shape, as the oak tree has a far greater mass than the aphids.<br><em>Dry biomass is used as the water content varies.</em>"
+  },
+  {
+    "q": "Grass receives 20 000 kJ of energy. The rabbits eating it gain 2000 kJ and the foxes eating the rabbits gain 180 kJ. Calculate the percentage energy transfer from (a) grass to rabbits and (b) rabbits to foxes.",
+    "a": "% transfer = (energy in next level &divide; energy in previous level) &times; 100<br>(a) 2000 &divide; 20 000 &times; 100 = <strong>10%</strong><br>(b) 180 &divide; 2000 &times; 100 = <strong>9%</strong>"
+  },
+  {
+    "q": "Only about 10% of energy passes from one trophic level to the next. Explain <strong>where the remaining energy goes</strong> and why food chains rarely have more than five trophic levels.",
+    "a": "Energy is lost as:<br>• <strong>heat</strong> from <strong>respiration</strong> (energy used for movement, keeping warm, active transport, etc.)<br>• parts <strong>not eaten</strong> (roots, bones, fur)<br>• parts <strong>not digested</strong>, egested as faeces<br>• energy in <strong>excretory products</strong> (e.g. urea).<br>After 4-5 transfers (10%, 1%, 0.1%, 0.01%...) too little energy remains to support another population."
+  },
+  {
+    "q": "Describe the <strong>carbon cycle</strong>: name the processes that remove CO<sub>2</sub> from the atmosphere and the processes that return it.",
+    "a": "<strong>Removed</strong>: <strong>photosynthesis</strong> by producers fixes CO<sub>2</sub> into organic compounds (glucose, starch), which pass along food chains by <strong>feeding</strong>.<br><strong>Returned</strong>: <strong>respiration</strong> by plants, animals and decomposers; <strong>decomposition</strong> of dead remains by microorganisms; <strong>combustion</strong> of wood and fossil fuels (formed by fossilisation over millions of years)."
+  },
+  {
+    "q": "<em>Biology only.</em> Describe the roles of the four types of bacteria/processes in the <strong>nitrogen cycle</strong>: decomposers, nitrifying, nitrogen-fixing and denitrifying bacteria.",
+    "a": "• <strong>Decomposers</strong> (bacteria and fungi): break down proteins and urea in dead matter and waste into <strong>ammonia</strong>.<br>• <strong>Nitrifying bacteria</strong>: oxidise ammonia to nitrite, then to <strong>nitrate</strong>, which plant roots absorb to make amino acids and proteins.<br>• <strong>Nitrogen-fixing bacteria</strong> (free-living, or in root nodules of legumes): convert atmospheric N<sub>2</sub> into ammonia/ammonium compounds.<br>• <strong>Denitrifying bacteria</strong>: convert nitrates to N<sub>2</sub> gas, reducing soil fertility."
+  },
+  {
+    "q": "Explain how the <strong>enhanced greenhouse effect</strong> leads to global warming. Name two greenhouse gases other than CO<sub>2</sub>.",
+    "a": "Short-wavelength radiation from the Sun passes through the atmosphere and warms the Earth, which re-emits <strong>longer-wavelength infrared (heat)</strong>. Greenhouse gases <strong>absorb</strong> some of this and re-radiate it back, keeping the Earth warm (natural greenhouse effect). Burning fossil fuels and deforestation raise CO<sub>2</sub> and other gases, so <strong>more heat is trapped</strong> and the mean global temperature rises.<br>Other gases: <strong>methane</strong> (cattle, rice fields), water vapour, nitrous oxide, CFCs."
+  },
+  {
+    "q": "State <strong>three</strong> possible consequences of global warming.",
+    "a": "• Melting of polar ice caps and glaciers &rarr; <strong>rising sea levels</strong> and flooding of low-lying land.<br>• Changes in <strong>climate and rainfall</strong> patterns, more extreme weather, droughts.<br>• Changes in the <strong>distribution</strong> of species and crops; some species may go extinct if they cannot adapt or migrate; spread of tropical diseases."
+  },
+  {
+    "q": "Explain how burning fossil fuels causes <strong>acid rain</strong> and describe <strong>two</strong> of its effects.",
+    "a": "Fossil fuels contain sulfur, so burning releases <strong>sulfur dioxide</strong> ($\\mathrm{SO}_2$), which dissolves in rainwater to form <strong>acidic solutions</strong> (sulfurous/sulfuric acid).<br>Effects: <strong>lowers pH of lakes</strong>, killing fish and other organisms; <strong>damages leaves</strong> of trees; leaches minerals from the soil, so tree growth is slowed."
+  },
+  {
+    "q": "How can <strong>lichens</strong> be used to monitor air pollution? Why does this work?",
+    "a": "Lichens differ in their tolerance of $\\mathrm{SO}_2$: leafy and bushy types are very <strong>sensitive</strong> and only grow where the air is clean, while crusty types tolerate some pollution. The <strong>types and number of lichens</strong> present on trees/walls at different sites act as <strong>indicator species</strong> showing the relative level of sulfur dioxide pollution. (Lichens absorb gases directly over their surfaces, so are quickly affected.)"
+  },
+  {
+    "q": "Explain how <strong>carbon monoxide</strong> is produced and why it is harmful to humans.",
+    "a": "Produced by <strong>incomplete combustion</strong> of carbon-containing fuels (car engines, faulty heaters) and in cigarette smoke.<br>CO <strong>combines irreversibly with haemoglobin</strong> in red blood cells, forming a stable compound, so haemoglobin cannot carry as much <strong>oxygen</strong>. Tissues receive less oxygen for aerobic respiration, causing fatigue, headaches and in severe cases death."
+  },
+  {
+    "q": "<em>Biology only.</em> Explain the effects of <strong>deforestation</strong> on (a) the soil, (b) evapotranspiration and (c) the carbon cycle.",
+    "a": "(a) No tree roots to hold the soil, so <strong>soil erosion</strong> by rain; <strong>leaching</strong> washes out minerals; no leaf litter to return nutrients, so soil quality is reduced.<br>(b) Fewer trees means less <strong>transpiration</strong> and evaporation, so less water vapour enters the air, reducing local rainfall and possibly causing drought.<br>(c) Fewer trees means <strong>less photosynthesis</strong>, so less CO<sub>2</sub> removed; burning and decay of felled trees <strong>release CO<sub>2</sub></strong>, adding to global warming."
+  },
+  {
+    "q": "Explain how <strong>fertiliser</strong> use on farmland can lead to the death of fish in a nearby river. Use the term <strong>eutrophication</strong>.",
+    "a": "1. Soluble nitrates are <strong>leached</strong> from soil by rain into the river.<br>2. Extra nutrients cause rapid <strong>growth of algae</strong> (algal bloom).<br>3. Algae block <strong>light</strong>, so plants below cannot photosynthesise and die.<br>4. Dead plants and algae are decomposed by <strong>bacteria</strong>, which respire aerobically and use up the dissolved <strong>oxygen</strong>.<br>5. Fish and other aerobic organisms <strong>suffocate</strong> (die through lack of oxygen)."
+  },
+  {
+    "q": "Explain why releasing <strong>untreated sewage</strong> into a river reduces the number of fish downstream, even though sewage is organic and biodegradable.",
+    "a": "Sewage supplies nutrients, so <strong>bacteria multiply</strong> and decompose it using aerobic respiration, <strong>lowering dissolved oxygen</strong> (high biochemical oxygen demand). Fish and other animals needing oxygen die; only organisms tolerant of low oxygen (e.g. sludgeworms, anaerobic bacteria) survive. Nitrates and phosphates released can also cause eutrophication. Sewage may carry <strong>pathogens</strong>. Further downstream the water recovers as it is re-oxygenated."
+  },
+  {
+    "q": "Define <strong>diffusion</strong>, <strong>osmosis</strong> and <strong>active transport</strong>.",
+    "a": "<strong>Diffusion</strong>: net movement of particles from a region of <strong>higher</strong> to <strong>lower concentration</strong> (down a concentration gradient), as a result of their random movement.<br><strong>Osmosis</strong>: net movement of <strong>water molecules</strong> from a region of <strong>higher water potential</strong> (dilute solution) to a region of <strong>lower water potential</strong> (concentrated solution) through a <strong>partially permeable membrane</strong>.<br><strong>Active transport</strong>: movement of particles <strong>against</strong> a concentration gradient (low to high) using <strong>energy from respiration</strong> and carrier proteins."
+  },
+  {
+    "q": "Complete the compare-and-contrast: for diffusion, osmosis and active transport state (i) whether energy from respiration is needed and (ii) the direction relative to the concentration gradient.",
+    "a": "<strong>Diffusion</strong>: passive (no energy); down the gradient.<br><strong>Osmosis</strong>: passive (no energy); water moves from high to low water potential (down its gradient) across a partially permeable membrane.<br><strong>Active transport</strong>: <strong>needs energy</strong> (ATP from respiration); <strong>against</strong> the gradient; requires carrier proteins in the membrane.<br><em>Similarity: all move substances across or within cells, and all depend on membranes/particle movement.</em>"
+  },
+  {
+    "q": "Root hair cells absorb mineral ions (e.g. nitrate) from soil water that contains a much lower concentration than the cell. Name the process and explain how the root hair cell is adapted for it.",
+    "a": "<strong>Active transport</strong>: ions move against the concentration gradient, using energy from respiration, via carrier proteins in the membrane.<br>Adaptations: many <strong>mitochondria</strong> to supply ATP; <strong>carrier proteins</strong> in the membrane; the long root hair gives a <strong>large surface area</strong>.<br>(If oxygen is lacking, e.g. waterlogged soil, uptake of ions falls.)"
+  },
+  {
+    "q": "Explain why <strong>glucose</strong> is absorbed from the small intestine by <strong>both</strong> diffusion and active transport.",
+    "a": "After a meal the glucose concentration in the gut is higher than in the blood, so glucose enters the villus by <strong>diffusion</strong> down the gradient. When the gut concentration falls below that in the blood, glucose is absorbed by <strong>active transport</strong> against the gradient (using energy from respiration), so as much glucose as possible is absorbed.<br>Villi have a <strong>large surface area</strong>, thin walls (short diffusion distance) and a good blood supply to maintain the gradient."
+  },
+  {
+    "q": "Explain how <strong>three</strong> features of the alveoli make gas exchange efficient.",
+    "a": "• <strong>Large surface area</strong> (millions of alveoli).<br>• <strong>Thin walls</strong>, one cell thick, giving a <strong>short diffusion distance</strong>.<br>• Rich <strong>capillary network</strong> carries away oxygen and brings CO<sub>2</sub>, maintaining a <strong>steep concentration gradient</strong>; ventilation also maintains the gradient.<br>• Moist surface lets gases dissolve."
+  },
+  {
+    "q": "Potato cylinders were placed in different sucrose solutions. In 0.0 M the cylinder gained mass; in 0.8 M it lost mass. Explain these results using <strong>water potential</strong> and suggest how to find the concentration of the potato cell sap.",
+    "a": "In 0.0 M (pure water) the solution has a <strong>higher water potential</strong> than the potato cells, so water enters by <strong>osmosis</strong> through the partially permeable membranes and the mass increases. In 0.8 M the solution has a <strong>lower water potential</strong> than the cells, so water leaves and mass decreases.<br>Plot <strong>% change in mass</strong> against concentration; where the line crosses <strong>0% change</strong> there is no net water movement, so the solution is <strong>isotonic</strong> with the cell sap.<br><em>Use a % change so cylinders of different starting mass can be compared; blot dry before weighing.</em>"
+  },
+  {
+    "q": "Explain what happens to a plant cell placed in (a) distilled water and (b) a concentrated salt solution. Use the terms <strong>turgid</strong>, <strong>plasmolysed</strong> and <strong>cell wall</strong>.",
+    "a": "(a) Water enters by osmosis, the vacuole swells and the cytoplasm pushes against the cell wall; the cell becomes <strong>turgid</strong>. The <strong>cell wall</strong> prevents bursting and its pressure stops further uptake.<br>(b) Water leaves by osmosis, the cytoplasm shrinks and the cell membrane pulls away from the wall: the cell is <strong>plasmolysed</strong> (and the tissue becomes flaccid).<br>An animal cell has no wall, so it would burst (lyse) in water."
+  }
+];
+
+    function quiz() {
+      // Progress is saved in localStorage, keyed per quiz page. SIG changes if the cards change,
+      // so a regenerated quiz never loads stale progress. Every access is wrapped in try/catch
+      // because storage can be blocked (private window, file://, cleared site data).
+      const KEY = 'quiz-progress:' + location.pathname;
+      const SIG = CARDS.length + ':' + (CARDS[0] ? CARDS[0].q.slice(0, 40) : '');
+      const all = CARDS.map((_, i) => i);
+      return {
+        deck: all,            // indices into CARDS for the active run (all, or wrong-only retry)
+        cards: CARDS,
+        current: 0,
+        revealed: false,
+        correct: 0,
+        incorrect: 0,
+        done: false,
+        wrongIdx: [],         // indices into CARDS answered wrong this run
+
+        init() {
+          this.load();
+          this.$watch('current', () => this.$nextTick(() => this.renderMath()));
+          this.$nextTick(() => this.renderMath());
+          window.addEventListener('load', () => this.renderMath());
+        },
+        save() {
+          try {
+            localStorage.setItem(KEY, JSON.stringify({
+              sig: SIG, deck: this.deck, current: this.current, revealed: this.revealed,
+              correct: this.correct, incorrect: this.incorrect, done: this.done, wrongIdx: this.wrongIdx
+            }));
+          } catch (e) { /* storage unavailable — quiz still works, just not remembered */ }
+        },
+        load() {
+          try {
+            const s = JSON.parse(localStorage.getItem(KEY));
+            const valid = s && s.sig === SIG && Array.isArray(s.deck) && s.deck.length
+              && s.deck.every(i => CARDS[i]) && Array.isArray(s.wrongIdx);
+            if (!valid) return;
+            this.deck = s.deck;
+            this.cards = s.deck.map(i => CARDS[i]);
+            this.current = Math.min(Math.max(s.current | 0, 0), this.cards.length - 1);
+            this.revealed = !!s.revealed;
+            this.correct = s.correct | 0;
+            this.incorrect = s.incorrect | 0;
+            this.done = !!s.done;
+            this.wrongIdx = s.wrongIdx;
+          } catch (e) { /* ignore corrupt or unavailable storage */ }
+        },
+        resetProgress() {
+          try { localStorage.removeItem(KEY); } catch (e) {}
+          this.restart(false);
+        },
+        renderMath() {
+          if (window.renderMathInElement) {
+            renderMathInElement(this.$el, {
+              delimiters: [
+                { left: '$$', right: '$$', display: true },
+                { left: '$', right: '$', display: false }
+              ],
+              throwOnError: false
+            });
+          }
+        },
+        reveal() {
+          this.revealed = true;
+          this.save();
+          this.$nextTick(() => this.renderMath());
+        },
+        mark(isCorrect) {
+          if (isCorrect) this.correct++;
+          else { this.incorrect++; this.wrongIdx.push(this.deck[this.current]); }
+          this.next();
+        },
+        next() {
+          if (this.current < this.cards.length - 1) {
+            this.current++;
+            this.revealed = false;
+          } else {
+            this.done = true;
+          }
+          this.save();
+        },
+        restart(wrongOnly) {
+          this.deck = wrongOnly ? [...this.wrongIdx] : all;
+          this.cards = this.deck.map(i => CARDS[i]);
+          this.current = 0;
+          this.revealed = false;
+          this.correct = 0;
+          this.incorrect = 0;
+          this.done = false;
+          this.wrongIdx = [];
+          this.save();
+          this.$nextTick(() => this.renderMath());
+        }
+      }
+    }
+  </script>
+</body>
+</html>
