@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Maths — Year 9-10 Theorems and Formulas Flashcards</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <!-- KaTeX for TeX/math and chemical formula rendering (bullet 6) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+    .flip-card { perspective: 1000px; }
+    /* Grid layout allows card height to flex with content (bullet 7) */
+    .flip-inner { transition: transform 0.5s; transform-style: preserve-3d; display: grid; }
+    .flipped .flip-inner { transform: rotateY(180deg); }
+    .flip-front, .flip-back { backface-visibility: hidden; -webkit-backface-visibility: hidden; grid-area: 1 / 1; }
+    .flip-back { transform: rotateY(180deg); }
+  </style>
+</head>
+<body class="bg-slate-900 min-h-screen text-white" x-data="quiz()" x-cloak>
+
+  <!-- Header -->
+  <header class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex items-center justify-between">
+    <div>
+      <h1 class="text-xl font-bold text-white">Maths Flashcards</h1>
+      <p class="text-sm text-slate-400">Year 9-10 theorems and formulas · Hard (recall + apply) · <span x-text="cards.length"></span> cards</p>
+    </div>
+    <div class="flex items-center gap-4 text-sm text-slate-400">
+      <span>Card <span x-text="current + 1"></span> of <span x-text="cards.length"></span></span>
+      <span class="text-green-400">✓ <span x-text="correct"></span></span>
+      <span class="text-red-400">✗ <span x-text="incorrect"></span></span>
+      <span class="text-amber-400" title="Not covered in school">⊘ <span x-text="notCovered"></span></span>
+      <button @click="resetProgress()" class="text-xs px-2 py-1 rounded border border-slate-600 hover:bg-slate-700">Reset progress</button>
+    </div>
+  </header>
+
+  <!-- Progress bar -->
+  <div class="h-1 bg-slate-700">
+    <div class="h-1 bg-indigo-500 transition-all duration-300"
+         :style="`width: ${((current + 1) / cards.length) * 100}%`"></div>
+  </div>
+
+  <!-- Card area -->
+  <main class="flex flex-col items-center justify-center px-4 py-12 gap-8">
+
+    <!-- Flashcard -->
+    <div class="flip-card w-full max-w-2xl cursor-pointer" :class="{ flipped: revealed }" @click="reveal()">
+      <div class="flip-inner">
+
+        <!-- Front (Question) -->
+        <div class="flip-front bg-slate-800 rounded-2xl border border-slate-700 p-8 flex flex-col justify-between shadow-xl">
+          <div class="flex items-start gap-3">
+            <span class="shrink-0 w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-sm font-bold"
+                  x-text="deck[current] + 1"></span>
+            <p class="text-lg leading-relaxed text-white" x-html="cards[current].q"></p>
+          </div>
+          <div x-show="cards[current].img" class="mt-4">
+            <img :src="cards[current].img" :alt="cards[current].imgAlt || 'Diagram'"
+                 class="rounded-lg max-h-40 mx-auto object-contain border border-slate-600">
+          </div>
+          <p class="text-slate-500 text-sm text-center mt-4">Click to reveal answer</p>
+        </div>
+
+        <!-- Back (Answer) -->
+        <div class="flip-back bg-indigo-900 rounded-2xl border border-indigo-700 p-8 flex flex-col justify-between shadow-xl">
+          <div>
+            <p class="text-xs uppercase tracking-widest text-indigo-400 mb-3 font-semibold">Answer</p>
+            <p class="text-lg leading-relaxed text-white" x-html="cards[current].a"></p>
+          </div>
+          <p class="text-slate-400 text-sm text-center mt-4">Mark yourself below</p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Controls — hidden until revealed -->
+    <div x-show="revealed" x-transition class="flex flex-wrap justify-center gap-4">
+      <button @click="mark('wrong')"
+              class="flex items-center gap-2 px-6 py-3 rounded-xl bg-red-600 hover:bg-red-500 transition font-semibold">
+        ✗ Got it wrong
+      </button>
+      <button @click="mark('skip')"
+              class="flex items-center gap-2 px-6 py-3 rounded-xl bg-amber-600 hover:bg-amber-500 transition font-semibold">
+        ⊘ Not covered in school
+      </button>
+      <button @click="mark('correct')"
+              class="flex items-center gap-2 px-6 py-3 rounded-xl bg-green-600 hover:bg-green-500 transition font-semibold">
+        ✓ Got it right
+      </button>
+    </div>
+
+    <!-- Reveal button when not yet flipped -->
+    <div x-show="!revealed" x-transition>
+      <button @click="reveal()"
+              class="px-8 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 transition font-semibold">
+        Show Answer
+      </button>
+    </div>
+
+  </main>
+
+  <!-- Completion screen -->
+  <div x-show="done" x-transition
+       class="fixed inset-0 bg-slate-900/95 flex flex-col items-center justify-center gap-6 p-8">
+    <h2 class="text-3xl font-bold">Quiz Complete!</h2>
+    <div class="flex gap-8 text-2xl">
+      <div class="text-center"><p class="text-green-400 font-bold" x-text="correct"></p><p class="text-slate-400 text-sm">Correct</p></div>
+      <div class="text-center"><p class="text-red-400 font-bold" x-text="incorrect"></p><p class="text-slate-400 text-sm">Incorrect</p></div>
+      <div class="text-center"><p class="text-amber-400 font-bold" x-text="notCovered"></p><p class="text-slate-400 text-sm">Not covered</p></div>
+      <div class="text-center"><p class="text-yellow-400 font-bold" x-text="scorePct() + '%'"></p><p class="text-slate-400 text-sm">Score (excl. not covered)</p></div>
+    </div>
+    <div class="flex gap-4">
+      <button @click="restart(false)"
+              class="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 transition font-semibold">
+        Restart All
+      </button>
+      <button @click="restart(true)" x-show="incorrect > 0"
+              class="px-6 py-3 rounded-xl bg-red-700 hover:bg-red-600 transition font-semibold">
+        Retry Wrong Cards
+      </button>
+    </div>
+  </div>
+
+  <script>
+    function quiz() {
+      // Progress is saved in localStorage, keyed per quiz page. SIG changes if the cards change,
+      // so a regenerated quiz never loads stale progress. Every access is wrapped in try/catch
+      // because storage can be blocked (private window, file://, cleared site data).
+      const KEY = 'quiz-progress:' + location.pathname;
+      const SIG = CARDS.length + ':' + (CARDS[0] ? CARDS[0].q.slice(0, 40) : '');
+      const all = CARDS.map((_, i) => i);
+      return {
+        deck: all,            // indices into CARDS for the active run (all, or wrong-only retry)
+        cards: CARDS,
+        current: 0,
+        revealed: false,
+        correct: 0,
+        incorrect: 0,
+        notCovered: 0,        // cards marked "not covered in school" — excluded from score and retry
+        done: false,
+        wrongIdx: [],         // indices into CARDS answered wrong this run
+        skipIdx: [],          // indices into CARDS marked not covered this run
+
+        init() {
+          this.load();
+          this.$watch('current', () => this.$nextTick(() => this.renderMath()));
+          this.$nextTick(() => this.renderMath());
+        },
+        save() {
+          try {
+            localStorage.setItem(KEY, JSON.stringify({
+              sig: SIG, deck: this.deck, current: this.current, revealed: this.revealed,
+              correct: this.correct, incorrect: this.incorrect, notCovered: this.notCovered, done: this.done,
+              wrongIdx: this.wrongIdx, skipIdx: this.skipIdx
+            }));
+          } catch (e) { /* storage unavailable — quiz still works, just not remembered */ }
+        },
+        load() {
+          try {
+            const s = JSON.parse(localStorage.getItem(KEY));
+            const valid = s && s.sig === SIG && Array.isArray(s.deck) && s.deck.length
+              && s.deck.every(i => CARDS[i]) && Array.isArray(s.wrongIdx);
+            if (!valid) return;
+            this.deck = s.deck;
+            this.cards = s.deck.map(i => CARDS[i]);
+            this.current = Math.min(Math.max(s.current | 0, 0), this.cards.length - 1);
+            this.revealed = !!s.revealed;
+            this.correct = s.correct | 0;
+            this.incorrect = s.incorrect | 0;
+            this.notCovered = s.notCovered | 0;
+            this.skipIdx = Array.isArray(s.skipIdx) ? s.skipIdx : [];
+            this.done = !!s.done;
+            this.wrongIdx = s.wrongIdx;
+          } catch (e) { /* ignore corrupt or unavailable storage */ }
+        },
+        resetProgress() {
+          try { localStorage.removeItem(KEY); } catch (e) {}
+          this.restart(false);
+        },
+        renderMath() {
+          if (window.renderMathInElement) {
+            renderMathInElement(this.$el, {
+              delimiters: [
+                { left: '$$', right: '$$', display: true },
+                { left: '$', right: '$', display: false }
+              ],
+              throwOnError: false
+            });
+          }
+        },
+        reveal() {
+          this.revealed = true;
+          this.save();
+          this.$nextTick(() => this.renderMath());
+        },
+        mark(result) {   // 'correct' | 'wrong' | 'skip' (not covered in school)
+          const idx = this.deck[this.current];
+          if (result === 'correct') this.correct++;
+          else if (result === 'skip') { this.notCovered++; this.skipIdx.push(idx); }
+          else { this.incorrect++; this.wrongIdx.push(idx); }
+          this.next();
+        },
+        scorePct() {
+          const attempted = this.cards.length - this.notCovered;
+          return attempted > 0 ? Math.round((this.correct / attempted) * 100) : 0;
+        },
+        next() {
+          if (this.current < this.cards.length - 1) {
+            this.current++;
+            this.revealed = false;
+          } else {
+            this.done = true;
+          }
+          this.save();
+        },
+        restart(wrongOnly) {
+          this.deck = wrongOnly ? [...this.wrongIdx] : all;
+          this.cards = this.deck.map(i => CARDS[i]);
+          this.current = 0;
+          this.revealed = false;
+          this.correct = 0;
+          this.incorrect = 0;
+          this.notCovered = 0;
+          this.done = false;
+          this.wrongIdx = [];
+          this.skipIdx = [];
+          this.save();
+          this.$nextTick(() => this.renderMath());
+        }
+      }
+    }
+
+    const C = (topic, q, a) => ({
+      q: '<span class="block text-xs uppercase tracking-widest text-indigo-400 font-semibold mb-2">' + topic + '</span>' + q,
+      a: a
+    });
+    const CARDS = [
+      // ---------- NUMBER ----------
+      C("Number · Indices", "State the index laws for $a^m \\times a^n$, $a^m \\div a^n$, $(a^m)^n$ and $(ab)^n$. Then simplify $(2x^3)^4 \\div 8x^5$.",
+        "$a^{m+n}$, $a^{m-n}$, $a^{mn}$, $a^n b^n$.<br>Laws for multiplying/dividing need the <strong>same base</strong>.<br>$(2x^3)^4 \\div 8x^5 = 16x^{12} \\div 8x^5 = \\mathbf{2x^7}$"),
+      C("Number · Indices", "What are $a^0$, $a^{-n}$, $a^{1/n}$ and $a^{m/n}$? Evaluate $\\left(\\tfrac{27}{8}\\right)^{-2/3}$.",
+        "$a^0 = 1$; $a^{-n} = \\dfrac{1}{a^n}$; $a^{1/n} = \\sqrt[n]{a}$; $a^{m/n} = (\\sqrt[n]{a})^m$.<br>Negative power = <strong>reciprocal</strong> (not a negative number).<br>$\\left(\\tfrac{27}{8}\\right)^{-2/3} = \\left(\\tfrac{8}{27}\\right)^{2/3} = \\left(\\tfrac23\\right)^2 = \\mathbf{\\tfrac49}$"),
+      C("Number · Standard form", "Define standard form. Write $(3\\times10^4)\\times(5\\times10^3)$ in standard form.",
+        "$a \\times 10^n$ with $1 \\le a < 10$ and $n$ an integer.<br>Multiply: multiply the $a$s, <strong>add</strong> the powers; divide: divide the $a$s, <strong>subtract</strong> the powers.<br>$15\\times10^7 = \\mathbf{1.5\\times10^8}$ (re-adjust so $a<10$)."),
+      C("Number · Recurring decimals", "Method for converting a recurring decimal to a fraction. Convert $0.1\\dot{6}$.",
+        "Let $x$ = the decimal; multiply by $10^n$ so the recurring parts line up (one power for the repeating block); <strong>subtract</strong> to cancel the tail; solve for $x$.<br>$100x = 16.666\\ldots$, $10x = 1.666\\ldots$ &rArr; $90x = 15$ &rArr; $x = \\mathbf{\\tfrac16}$.<br>Quick check: $0.\\dot{4}\\dot{5} = \\tfrac{45}{99} = \\tfrac{5}{11}$."),
+      C("Number · Percentages", "Formula for percentage change, and the multiplier for an increase/decrease of $r\\%$.",
+        "$\\text{\\% change} = \\dfrac{\\text{new} - \\text{old}}{\\text{old}} \\times 100$<br>Increase: multiplier $1 + \\tfrac{r}{100}$; decrease: $1 - \\tfrac{r}{100}$.<br>e.g. $+15\\%$ &rarr; $\\times 1.15$; $-8\\%$ &rarr; $\\times 0.92$."),
+      C("Number · Percentages", "How do you find the <strong>original</strong> value after a percentage change (reverse percentage)? A coat costs 63 pounds after a 30% reduction. Original price?",
+        "$\\text{original} = \\dfrac{\\text{new}}{\\text{multiplier}}$ (never take the percentage off the new value).<br>Multiplier $=0.70$, so original $= 63 \\div 0.70 = \\mathbf{90\\text{ pounds}}$."),
+      C("Number · Compound interest", "Compound growth / decay formula. Find the value of 2000 pounds after 4 years at 3% compound interest.",
+        "$A = P\\left(1 + \\dfrac{r}{100}\\right)^n$ (growth); $A = P\\left(1 - \\dfrac{r}{100}\\right)^n$ (depreciation).<br>$2000 \\times 1.03^4 = \\mathbf{2251.02\\text{ pounds}}$ (to the nearest penny)."),
+      C("Number · Bounds", "A length is 7.3 cm to 1 d.p. State the lower and upper bounds and the error interval. What is the general rule?",
+        "Rounded to the nearest unit $u$: $\\text{LB} = x - \\tfrac u2$, $\\text{UB} = x + \\tfrac u2$.<br>$u = 0.1$: $7.25 \\le \\text{length} < 7.35$.<br>Lower bound is included (&le;), upper bound is <strong>strict</strong> (&lt;)."),
+      C("Number · Bounds", "Which bounds do you use for the <strong>upper</strong> bound of $a+b$, $a-b$, $a\\times b$ and $a\\div b$?",
+        "$a+b$: UB$_a$ + UB$_b$<br>$a-b$: UB$_a$ &minus; <strong>LB</strong>$_b$<br>$a\\times b$: UB$_a$ &times; UB$_b$<br>$a\\div b$: UB$_a$ &divide; <strong>LB</strong>$_b$<br>(For lower bounds, swap UB and LB.)"),
+      C("Number · Surds", "State the surd rules for $\\sqrt{a}\\sqrt{b}$ and $\\sqrt{a/b}$, and how to rationalise $\\dfrac{1}{\\sqrt{a}}$ and $\\dfrac{1}{a+\\sqrt{b}}$. Simplify $\\dfrac{6}{\\sqrt3}$.",
+        "$\\sqrt a\\sqrt b = \\sqrt{ab}$; $\\sqrt{a/b} = \\sqrt a/\\sqrt b$.<br>$\\dfrac1{\\sqrt a} = \\dfrac{\\sqrt a}{a}$; for $\\dfrac{1}{a+\\sqrt b}$ multiply top and bottom by the <strong>conjugate</strong> $a-\\sqrt b$ (denominator becomes $a^2-b$).<br>$\\dfrac{6}{\\sqrt3} = \\dfrac{6\\sqrt3}{3} = \\mathbf{2\\sqrt3}$"),
+      C("Number · Compound measures", "Formulae for speed, density and pressure (with units). Find the density of a 540 g block of volume 200 cm$^3$.",
+        "$\\text{speed} = \\dfrac{\\text{distance}}{\\text{time}}$ (m/s, km/h)<br>$\\text{density} = \\dfrac{\\text{mass}}{\\text{volume}}$ (g/cm$^3$, kg/m$^3$)<br>$\\text{pressure} = \\dfrac{\\text{force}}{\\text{area}}$ (N/m$^2$)<br>Density $= 540 \\div 200 = \\mathbf{2.7\\text{ g/cm}^3}$. Average speed = <em>total</em> distance &divide; <em>total</em> time."),
+      C("Number · Converting measures", "Give the standard approximate imperial&ndash;metric conversions, and convert 30 miles to km.",
+        "1 inch &approx; 2.5 cm; 1 foot &approx; 30 cm; 1 mile &approx; 1.6 km; 1 kg &approx; 2.2 lb; 1 gallon &approx; 4.5 litres; 1 litre &approx; 1.75 pints.<br>30 miles $= 30 \\times 1.6 = \\mathbf{48\\text{ km}}$.<br>km/h &rarr; m/s: divide by 3.6."),
+      C("Number · Converting measures", "How many cm$^2$ in 1 m$^2$ and cm$^3$ in 1 m$^3$? What links cm$^3$, ml and litres?",
+        "$1\\text{ m}^2 = 100^2 = 10\\,000\\text{ cm}^2$<br>$1\\text{ m}^3 = 100^3 = 1\\,000\\,000\\text{ cm}^3$<br>$1\\text{ cm}^3 = 1\\text{ ml}$; $1\\text{ litre} = 1000\\text{ cm}^3$.<br>Square/cube the length factor for areas/volumes."),
+
+      // ---------- ALGEBRA ----------
+      C("Algebra · Expanding", "Expand $(x+a)(x+b)$, $(a+b)^2$ and $(a-b)^2$.",
+        "$(x+a)(x+b) = x^2 + (a+b)x + ab$<br>$(a+b)^2 = a^2 + 2ab + b^2$<br>$(a-b)^2 = a^2 - 2ab + b^2$<br>Common error: $(a+b)^2 \\neq a^2+b^2$."),
+      C("Algebra · Factorising", "State the difference of two squares and use it to find $51^2 - 49^2$ and factorise $49x^2 - 25y^2$.",
+        "$a^2 - b^2 = (a-b)(a+b)$.<br>$51^2 - 49^2 = (2)(100) = \\mathbf{200}$.<br>$49x^2 - 25y^2 = \\mathbf{(7x-5y)(7x+5y)}$."),
+      C("Algebra · Factorising", "Method for factorising $ax^2+bx+c$ when $a\\neq1$. Factorise $6x^2+7x-3$.",
+        "Find two numbers that multiply to $ac$ and add to $b$; split the middle term; factorise in pairs.<br>$ac=-18$, numbers $9$ and $-2$:<br>$6x^2+9x-2x-3 = 3x(2x+3) - (2x+3) = \\mathbf{(3x-1)(2x+3)}$."),
+      C("Algebra · Quadratics", "Write the quadratic formula for $ax^2+bx+c=0$.",
+        "$x = \\dfrac{-b \\pm \\sqrt{b^2-4ac}}{2a}$<br>Put brackets round negatives when substituting; the whole numerator is divided by $2a$."),
+      C("Algebra · Quadratics", "What does the discriminant $b^2-4ac$ tell you? For what values of $k$ does $x^2+kx+9=0$ have equal roots?",
+        "$b^2-4ac>0$: two distinct real roots<br>$b^2-4ac=0$: one repeated root (graph touches the $x$-axis)<br>$b^2-4ac<0$: no real roots.<br>Equal roots: $k^2-36=0$ &rArr; $\\mathbf{k=\\pm6}$."),
+      C("Algebra · Quadratics", "Completing the square: write the identity, and use it to find the turning point of $y = x^2+6x+2$.",
+        "$x^2+bx+c = \\left(x+\\tfrac b2\\right)^2 + c - \\tfrac{b^2}{4}$<br>$y = (x+3)^2 - 7$, so the minimum turning point is $\\mathbf{(-3,\\,-7)}$.<br>Axis of symmetry: $x = -\\dfrac{b}{2a}$."),
+      C("Algebra · Sequences", "$n$th term of an arithmetic sequence with first term $a$ and common difference $d$. Find the 20th term of $7, 11, 15, \\ldots$",
+        "$u_n = a + (n-1)d$<br>$u_{20} = 7 + 19(4) = \\mathbf{83}$.<br>(Equivalent form: $dn + (a-d)$, i.e. $4n+3$.)"),
+      C("Algebra · Sequences", "Formula for the sum of the first $n$ terms of an arithmetic series. Find $1+2+3+\\cdots+100$.",
+        "$S_n = \\dfrac n2\\left[2a+(n-1)d\\right] = \\dfrac n2(a + l)$ where $l$ is the last term.<br>$S_{100} = \\tfrac{100}{2}(1+100) = \\mathbf{5050}$."),
+      C("Algebra · Sequences", "How do you find the $n$th term of a quadratic sequence? Find it for $3, 8, 15, 24, \\ldots$",
+        "Second difference is constant $= 2a$, so $a = \\tfrac12(\\text{second difference})$. Subtract $an^2$ from each term, then find the linear $bn+c$ left over.<br>Differences $5,7,9$; second difference $2$ &rArr; $a=1$. Subtract $n^2$: $2,4,6,8 = 2n$.<br>$\\mathbf{n^2+2n}$."),
+      C("Algebra · Proportion", "Write the equation forms for direct and inverse proportion: $y\\propto x$, $y\\propto x^2$, $y\\propto\\sqrt x$, $y\\propto\\tfrac1x$, $y\\propto\\tfrac1{x^2}$.",
+        "$y=kx$, $y=kx^2$, $y=k\\sqrt x$, $y=\\dfrac kx$, $y=\\dfrac k{x^2}$.<br><strong>Method:</strong> write $y=kx^n$ &rarr; find $k$ first (a pair with $x=1$ is easiest) &rarr; keep $k$ in every later equation &rarr; then find $n$ / the missing value."),
+      C("Algebra · Proportion", "If $y\\propto x^2$ and $x$ is tripled, what happens to $y$? If $y\\propto\\tfrac{1}{x^2}$ and $x$ is doubled?",
+        "$y\\propto x^2$: $y\\times 3^2 = \\mathbf{\\times 9}$.<br>$y\\propto 1/x^2$: $y \\times \\tfrac1{2^2} = \\mathbf{\\times\\tfrac14}$.<br>Substitute the scale factor into the power."),
+      C("Algebra · Inequalities", "Rule for solving linear inequalities, and the method for a quadratic inequality. Solve $(x-1)(x-4)<0$.",
+        "Treat like an equation, but <strong>reverse the sign</strong> when multiplying/dividing by a negative.<br>Quadratic: find the roots, sketch the graph, read off the region ($<0$: below the axis).<br>Roots $1,4$; U-shaped, so below the axis between them: $\\mathbf{1<x<4}$."),
+      C("Algebra · Rearranging", "Method for changing the subject when the subject appears twice. Make $x$ the subject of $y=\\dfrac{x+1}{x-2}$.",
+        "Clear fractions, expand, collect all $x$ terms on one side, <strong>factorise</strong> out $x$, divide.<br>$y(x-2)=x+1 \\Rightarrow xy-2y=x+1 \\Rightarrow x(y-1)=2y+1$<br>$x=\\mathbf{\\dfrac{2y+1}{y-1}}$"),
+      C("Algebra · Algebraic fractions", "How do you add/subtract and simplify algebraic fractions? Simplify $\\dfrac1{x+1}+\\dfrac2{x-1}$.",
+        "Add/subtract: common denominator. Simplify: <strong>factorise first</strong>, then cancel factors (never terms).<br>$\\dfrac{(x-1)+2(x+1)}{(x+1)(x-1)} = \\mathbf{\\dfrac{3x+1}{x^2-1}}$"),
+      C("Algebra · Simultaneous equations", "Method for a linear + quadratic pair. Solve $x^2+y^2=25$ and $y=x+1$.",
+        "Substitute the linear equation into the non-linear one, solve the quadratic, then substitute back for each $y$ (give <strong>pairs</strong>).<br>$x^2+(x+1)^2=25 \\Rightarrow x^2+x-12=0 \\Rightarrow x=3,\\,-4$<br>Solutions: $\\mathbf{(3,4)}$ and $\\mathbf{(-4,-3)}$."),
+      C("Algebra · Functions", "What do $fg(x)$ and $f^{-1}(x)$ mean? If $f(x)=2x+3$ and $g(x)=x^2$, find $fg(x)$, $gf(x)$ and $f^{-1}(x)$.",
+        "$fg(x)=f(g(x))$: do $g$ <strong>first</strong>. $f^{-1}$: write $y=f(x)$, swap $x$ and $y$, rearrange.<br>$fg(x)=2x^2+3$; $gf(x)=(2x+3)^2$; $f^{-1}(x)=\\mathbf{\\dfrac{x-3}{2}}$.<br>Note $fg\\neq gf$ in general."),
+      C("Algebra · Proof", "Algebraic forms for even, odd and consecutive numbers. Prove the square of an odd number is odd.",
+        "Even $=2n$; odd $=2n+1$; consecutive $=n,\\,n+1$.<br>$(2n+1)^2 = 4n^2+4n+1 = 2(2n^2+2n)+1$, which is <strong>2 &times; integer + 1</strong>, so odd.<br>Always state the conclusion in words; use different letters for different numbers."),
+
+      // ---------- GRAPHS ----------
+      C("Graphs · Straight lines", "Gradient formula and the equation of a straight line. Find the line through $(2,5)$ with gradient $3$.",
+        "$m=\\dfrac{y_2-y_1}{x_2-x_1}$; $y=mx+c$; or $y-y_1=m(x-x_1)$.<br>$y-5=3(x-2) \\Rightarrow \\mathbf{y=3x-1}$."),
+      C("Graphs · Straight lines", "Relationship between gradients of parallel and perpendicular lines. Gradient of a line perpendicular to $y=2x+3$?",
+        "Parallel: $m_1=m_2$. Perpendicular: $m_1 m_2=-1$ (negative reciprocal).<br>$m=2 \\Rightarrow$ perpendicular gradient $=\\mathbf{-\\tfrac12}$."),
+      C("Graphs · Coordinates", "Midpoint and length formulae for a line from $A(x_1,y_1)$ to $B(x_2,y_2)$. Apply to $A(1,2)$, $B(7,10)$.",
+        "Midpoint $=\\left(\\dfrac{x_1+x_2}2,\\dfrac{y_1+y_2}2\\right)$; length $=\\sqrt{(x_2-x_1)^2+(y_2-y_1)^2}$.<br>Midpoint $\\mathbf{(4,6)}$; length $=\\sqrt{36+64}=\\mathbf{10}$."),
+      C("Graphs · Shapes", "Describe the shape and key features of $y=x^2$, $y=x^3$, $y=\\tfrac1x$ and $y=a^x$ ($a>1$).",
+        "$y=x^2$: U-shaped parabola, symmetric about the $y$-axis.<br>$y=x^3$: S-shaped, passes through the origin, rotational symmetry.<br>$y=\\tfrac1x$: two branches (1st &amp; 3rd quadrants), <strong>asymptotes</strong> at both axes, never touches them.<br>$y=a^x$: passes through $(0,1)$, always positive, $x$-axis is an asymptote."),
+      C("Graphs · Graphical solutions", "How do you solve $x^2=2x+3$ (or any $f(x)=g(x)$) using graphs? Which roots does it give?",
+        "Draw both graphs ($y=x^2$ and $y=2x+3$); the <strong>$x$-coordinates of the intersections</strong> are the solutions ($x=-1$ and $x=3$).<br>To solve $x^2-2x-3=0$ from the graph of $y=x^2-2x-3$, read where it crosses $y=0$; to use $y=x^2$, rearrange to find the line to draw."),
+      C("Graphs · Transformations of graphs", "Describe the transformations: $y=f(x)+a$, $y=f(x+a)$, $y=-f(x)$, $y=f(-x)$.",
+        "$f(x)+a$: translate <strong>up</strong> $a$ (vector $\\binom{0}{a}$).<br>$f(x+a)$: translate <strong>left</strong> $a$ (vector $\\binom{-a}{0}$).<br>$-f(x)$: reflect in the $x$-axis.<br>$f(-x)$: reflect in the $y$-axis.<br>Changes inside the brackets act on $x$ and do the &ldquo;opposite&rdquo;."),
+      C("Graphs · Gradients and areas", "What do the gradient and area under a distance&ndash;time and a speed&ndash;time graph represent? How do you find the gradient of a curve at a point?",
+        "Distance&ndash;time: gradient $=$ <strong>speed</strong>.<br>Speed&ndash;time: gradient $=$ <strong>acceleration</strong>; area under graph $=$ <strong>distance</strong>.<br>Curve at a point: draw a <strong>tangent</strong> there; gradient of the tangent $=$ rate of change at that instant (use a large triangle)."),
+      C("Graphs · Circles", "Equation of a circle with centre the origin and radius $r$. What is the radius of $x^2+y^2=49$, and is $(5,5)$ inside the circle?",
+        "$x^2+y^2=r^2$.<br>$r=7$. At $(5,5)$: $25+25=50>49$, so the point is <strong>outside</strong>.<br>Inside if $x^2+y^2<r^2$, on if $=r^2$."),
+      C("Graphs · Inequalities", "How do you show an inequality region on a graph?",
+        "Draw the boundary line: <strong>solid</strong> for $\\le,\\ge$; <strong>dashed</strong> for $<,>$.<br>Test a point (e.g. the origin) to decide which side; shade the <strong>unwanted</strong> region and label the required region R (unless told otherwise)."),
+
+      // ---------- GEOMETRY ----------
+      C("Geometry · Angle facts", "Angle sums: straight line, around a point, triangle, quadrilateral, and the exterior angle of a triangle.",
+        "Straight line $180^\\circ$; around a point $360^\\circ$; triangle $180^\\circ$; quadrilateral $360^\\circ$.<br><strong>Exterior angle of a triangle</strong> = sum of the two <strong>opposite</strong> interior angles."),
+      C("Geometry · Parallel lines", "Name the angle pairs formed when a transversal crosses parallel lines, and which are equal.",
+        "<strong>Alternate</strong> (Z) angles are equal.<br><strong>Corresponding</strong> (F) angles are equal.<br><strong>Co-interior</strong> (C / allied) angles add to $180^\\circ$.<br>Vertically opposite angles are equal."),
+      C("Geometry · Polygons", "Sum of interior angles, sum of exterior angles, and each angle of a regular $n$-gon. Find both angles for a regular 12-gon.",
+        "Interior sum $=(n-2)\\times180^\\circ$; exterior sum $=360^\\circ$.<br>Regular: exterior $=\\dfrac{360^\\circ}{n}$; interior $=180^\\circ-\\text{exterior}$.<br>$n=12$: exterior $30^\\circ$, interior $\\mathbf{150^\\circ}$."),
+      C("Geometry · Pythagoras", "State Pythagoras&apos; theorem and its 3D version. Find the space diagonal of a cuboid 3 by 4 by 12.",
+        "Right-angled triangle: $a^2+b^2=c^2$ ($c$ = hypotenuse). Converse: if $a^2+b^2=c^2$ the triangle is right-angled.<br>3D: $d^2=a^2+b^2+c^2$.<br>$d=\\sqrt{9+16+144}=\\sqrt{169}=\\mathbf{13}$."),
+      C("Geometry · Trigonometry", "Write the three right-angled trig ratios (SOHCAHTOA) and the two identities linking sin, cos and tan.",
+        "$\\sin\\theta=\\dfrac{O}{H}$, $\\cos\\theta=\\dfrac{A}{H}$, $\\tan\\theta=\\dfrac{O}{A}$.<br>$\\tan\\theta=\\dfrac{\\sin\\theta}{\\cos\\theta}$ and $\\sin^2\\theta+\\cos^2\\theta=1$.<br>To find an angle use the inverse function (e.g. $\\theta=\\sin^{-1}(O/H)$)."),
+      C("Geometry · Exact trig values", "Give the exact values of sin, cos and tan for $0^\\circ$, $30^\\circ$, $45^\\circ$, $60^\\circ$, $90^\\circ$.",
+        "$\\sin$: $0,\\ \\tfrac12,\\ \\tfrac{\\sqrt2}{2},\\ \\tfrac{\\sqrt3}{2},\\ 1$<br>$\\cos$: $1,\\ \\tfrac{\\sqrt3}{2},\\ \\tfrac{\\sqrt2}{2},\\ \\tfrac12,\\ 0$<br>$\\tan$: $0,\\ \\tfrac{1}{\\sqrt3},\\ 1,\\ \\sqrt3,\\ $ undefined<br>Memory aid: $\\sin\\theta$ goes $\\tfrac{\\sqrt0}{2},\\tfrac{\\sqrt1}{2},\\tfrac{\\sqrt2}{2},\\tfrac{\\sqrt3}{2},\\tfrac{\\sqrt4}{2}$; cos is the reverse."),
+      C("Geometry · Sine rule", "State the sine rule (both forms). When is it used?",
+        "$\\dfrac{a}{\\sin A}=\\dfrac{b}{\\sin B}=\\dfrac{c}{\\sin C}$ or $\\dfrac{\\sin A}{a}=\\dfrac{\\sin B}{b}=\\dfrac{\\sin C}{c}$.<br>Use when you know a side and its <strong>opposite</strong> angle, plus one more angle or side. (Put the unknown on top when finding a side.)"),
+      C("Geometry · Cosine rule", "State the cosine rule (side form and angle form). When is it used?",
+        "$a^2=b^2+c^2-2bc\\cos A$ and $\\cos A=\\dfrac{b^2+c^2-a^2}{2bc}$.<br>Use for <strong>SAS</strong> (find the third side) or <strong>SSS</strong> (find an angle)."),
+      C("Geometry · Area of a triangle", "Formula for the area of a triangle using two sides and the included angle. Find the area for sides 8 and 5 with $30^\\circ$ between them.",
+        "$\\text{Area}=\\tfrac12ab\\sin C$ ($C$ is <strong>between</strong> sides $a$ and $b$).<br>$\\tfrac12(8)(5)\\sin30^\\circ=\\mathbf{10}$ square units."),
+      C("Geometry · 3D trigonometry", "How do you find the angle between a line and a plane? In a cuboid with base $AB=6$, $BC=8$ and height $CG=5$, find the angle between $AG$ and the base.",
+        "Drop a perpendicular from the line&apos;s end to the plane; the angle is between the line and its <strong>projection</strong> on the plane (draw this right-angled triangle separately).<br>Projection $AC=\\sqrt{6^2+8^2}=10$.<br>$\\tan\\theta=\\tfrac5{10}\\Rightarrow\\theta=\\mathbf{26.6^\\circ}$"),
+      C("Geometry · Bearings", "How are bearings measured? How do you find a back bearing?",
+        "Measured from <strong>North</strong>, <strong>clockwise</strong>, as a <strong>3-figure</strong> number (e.g. 045&deg;).<br>Back bearing: add or subtract $180^\\circ$ (if over $360^\\circ$ subtract $360^\\circ$).<br>Draw a North line at <em>each</em> point."),
+      C("Geometry · Congruence", "List the four conditions for congruent triangles. Which combinations do <strong>not</strong> prove congruence?",
+        "<strong>SSS</strong>, <strong>SAS</strong>, <strong>ASA</strong> (or AAS), <strong>RHS</strong> (right angle, hypotenuse, side).<br>AAA (similar only) and SSA (non-included angle) do <strong>not</strong> work in general."),
+      C("Geometry · Similar shapes", "For similar shapes with length scale factor $k$, what are the area and volume scale factors? Two similar cones have heights 2 cm and 3 cm &mdash; ratio of volumes?",
+        "Length $k$, area $k^2$, volume $k^3$.<br>Heights $2:3$ &rArr; volumes $2^3:3^3=\\mathbf{8:27}$ (areas $4:9$).<br>Mass is proportional to volume for the same material."),
+      C("Geometry · Area", "Area formulae for triangle, parallelogram, trapezium and kite/rhombus.",
+        "Triangle $\\tfrac12bh$; parallelogram $bh$; trapezium $\\tfrac12(a+b)h$; kite/rhombus $\\tfrac12d_1d_2$ (product of diagonals).<br>$h$ is the <strong>perpendicular</strong> height."),
+      C("Geometry · Circles", "Circumference and area of a circle. Find the radius of a circle with area $50\\pi$ in exact form.",
+        "$C=2\\pi r=\\pi d$; $A=\\pi r^2$.<br>$\\pi r^2=50\\pi\\Rightarrow r^2=50\\Rightarrow r=\\sqrt{50}=\\mathbf{5\\sqrt2}$."),
+      C("Geometry · Arcs and sectors", "Arc length and sector area for angle $\\theta$ at the centre. Find both for $r=6$, $\\theta=60^\\circ$.",
+        "$\\text{arc}=\\dfrac{\\theta}{360}\\times2\\pi r$; $\\text{sector}=\\dfrac{\\theta}{360}\\times\\pi r^2$.<br>Arc $=\\tfrac16\\times12\\pi=\\mathbf{2\\pi}$ cm; sector $=\\tfrac16\\times36\\pi=\\mathbf{6\\pi}$ cm$^2$.<br>Perimeter of a sector $=$ arc $+\\ 2r$."),
+      C("Geometry · Segments", "How do you find the area of a circle segment?",
+        "$\\text{Segment}=\\text{sector}-\\text{triangle}$<br>$=\\dfrac{\\theta}{360}\\pi r^2-\\tfrac12r^2\\sin\\theta$."),
+      C("Geometry · Volume", "Volume formulae: prism, cylinder, cone, pyramid, sphere, hemisphere.",
+        "Prism: (cross-section area) &times; length<br>Cylinder: $\\pi r^2h$<br>Cone: $\\tfrac13\\pi r^2h$<br>Pyramid: $\\tfrac13\\times\\text{base area}\\times h$<br>Sphere: $\\tfrac43\\pi r^3$; hemisphere: $\\tfrac23\\pi r^3$"),
+      C("Geometry · Surface area", "Surface area formulae: cylinder, cone (and the slant height), sphere.",
+        "Cylinder: curved $2\\pi rh$; total $2\\pi rh+2\\pi r^2$.<br>Cone: curved $\\pi rl$ where $l=\\sqrt{r^2+h^2}$; total $\\pi rl+\\pi r^2$.<br>Sphere: $4\\pi r^2$."),
+
+      // ---------- CIRCLE THEOREMS ----------
+      C("Circle theorems", "Angle at the centre vs angle at the circumference, and angle in a semicircle.",
+        "Angle at the centre $=2\\times$ angle at the circumference (same arc).<br>Angle in a semicircle $=90^\\circ$ (the diameter subtends a right angle)."),
+      C("Circle theorems", "Angles in the same segment, and opposite angles of a cyclic quadrilateral.",
+        "Angles in the <strong>same segment</strong> (standing on the same chord) are <strong>equal</strong>.<br><strong>Opposite</strong> angles of a cyclic quadrilateral add to $180^\\circ$. (Exterior angle = interior opposite angle.)"),
+      C("Circle theorems", "State the tangent&ndash;radius theorem and the tangents-from-a-point theorem.",
+        "A tangent is <strong>perpendicular to the radius</strong> at the point of contact ($90^\\circ$).<br>Two tangents drawn from the same outside point are <strong>equal in length</strong> (the triangle formed is isosceles)."),
+      C("Circle theorems", "State the alternate segment theorem.",
+        "The angle between a <strong>tangent</strong> and a <strong>chord</strong> equals the angle in the <strong>alternate</strong> (opposite) segment.<br>Always write the reason beside each line of working."),
+      C("Circle theorems", "What does the perpendicular from the centre to a chord do?",
+        "It <strong>bisects the chord</strong> (and the converse: the line from the centre to the midpoint of a chord is perpendicular to it).<br>Use right-angled triangles with Pythagoras: $r^2=d^2+(\\tfrac{\\text{chord}}{2})^2$."),
+      C("Circle theorems · Chords and secants", "State the intersecting chords theorem (point inside the circle) and use it: chords $AB$ and $CD$ meet at $E$ with $AE=4$, $EB=6$, $CE=3$. Find $ED$.",
+        "$AE\\times EB=CE\\times ED$.<br>$4\\times6=3\\times ED\\Rightarrow ED=\\mathbf{8}$."),
+      C("Circle theorems · Chords and secants", "State the intersecting secants theorem (outside point) and the tangent&ndash;secant theorem. What is the common mistake?",
+        "Two secants from outside point $A$: $AD\\times AB=AE\\times AC$ (near $\\times$ far, <strong>all measured from $A$</strong>).<br>Tangent $AT$ and secant $AB$, $AC$: $AT^2=AB\\times AC$.<br><strong>Mistake:</strong> using lengths measured from points on the circle (e.g. $CE\\times CA$), or only the part inside the circle."),
+      C("Circle theorems · Reasons", "Why must every circle-theorem line of working have a reason? Give the exact wording for the cyclic quadrilateral reason.",
+        "Reasons carry the marks. Write them beside each step, in full:<br>&bull; &ldquo;<strong>Opposite</strong> angles of a cyclic quadrilateral add to $180^\\circ$&rdquo; (not just &ldquo;cyclic quadrilateral&rdquo;)<br>&bull; &ldquo;Angles on a straight line add to $180^\\circ$&rdquo;<br>&bull; &ldquo;Angle between tangent and chord = angle in the alternate segment&rdquo;"),
+
+      // ---------- TRANSFORMATIONS & VECTORS ----------
+      C("Transformations", "What information fully describes a reflection, rotation, translation and enlargement?",
+        "Reflection: the <strong>mirror line</strong> (equation).<br>Rotation: <strong>centre</strong>, <strong>angle</strong>, <strong>direction</strong> (clockwise/anticlockwise).<br>Translation: <strong>column vector</strong> $\\binom xy$.<br>Enlargement: <strong>scale factor</strong> and <strong>centre</strong>.<br>Say only <em>one</em> transformation."),
+      C("Transformations · Enlargement", "What do fractional and negative scale factors do?",
+        "$0<k<1$: image is <strong>smaller</strong>.<br>Negative $k$: image is on the <strong>opposite side</strong> of the centre and <strong>inverted</strong> (size $|k|$ times).<br>Distances from the centre are multiplied by $k$; area by $k^2$."),
+      C("Vectors", "How do you find a vector between two points given position vectors, and its magnitude? Find $\\overrightarrow{AB}$ and $|\\overrightarrow{AB}|$ if $\\overrightarrow{OA}=\\binom{1}{2}$, $\\overrightarrow{OB}=\\binom{4}{6}$.",
+        "$\\overrightarrow{AB}=\\overrightarrow{OB}-\\overrightarrow{OA}=\\mathbf{b-a}$ (end minus start).<br>$|\\binom xy|=\\sqrt{x^2+y^2}$.<br>$\\overrightarrow{AB}=\\binom{4-1}{6-2}=\\mathbf{\\binom34}$, so $|\\overrightarrow{AB}|=\\sqrt{9+16}=\\mathbf{5}$."),
+      C("Vectors · Position vectors", "Position vector of the midpoint $M$ of $AB$, and of a point $P$ dividing $AB$ in the ratio $m:n$.",
+        "$\\overrightarrow{OM}=\\tfrac12(\\mathbf a+\\mathbf b)$.<br>$\\overrightarrow{OP}=\\mathbf a+\\dfrac{m}{m+n}(\\mathbf b-\\mathbf a)$ (start at $A$, go $\\tfrac{m}{m+n}$ of the way along $\\overrightarrow{AB}$)."),
+      C("Vectors · Geometric proof", "How do you prove two lines are parallel, or three points are collinear, using vectors?",
+        "<strong>Parallel:</strong> show one vector is a <strong>scalar multiple</strong> of the other.<br><strong>Collinear:</strong> show $\\overrightarrow{AB}=k\\overrightarrow{BC}$ (multiples <em>and</em> a common point).<br>Write route vectors, simplify in terms of $\\mathbf a,\\mathbf b$, and state the conclusion in words."),
+      C("Constructions and loci", "What loci are given by: fixed distance from a point; equidistant from two points; equidistant from two lines; fixed distance from a line?",
+        "Fixed distance from a point: <strong>circle</strong>.<br>Equidistant from two points: <strong>perpendicular bisector</strong>.<br>Equidistant from two lines: <strong>angle bisector</strong>.<br>Fixed distance from a line: <strong>parallel lines with semicircular ends</strong>.<br>Keep construction arcs visible."),
+
+      // ---------- STATISTICS & PROBABILITY ----------
+      C("Statistics · Averages", "How do you find the mean and median position from a frequency table?",
+        "Mean $=\\dfrac{\\sum fx}{\\sum f}$ (use midpoints for grouped data).<br>Median is the $\\dfrac{n+1}{2}$th value; modal class has the highest frequency.<br>Range $=$ largest $-$ smallest."),
+      C("Statistics · Quartiles", "Positions of the lower quartile, median and upper quartile, and the interquartile range. Find the IQR for $n=15$ data, with $Q_1=12$ and $Q_3=20$.",
+        "$Q_1$: $\\tfrac{n+1}{4}$th; $Q_2$: $\\tfrac{n+1}{2}$th; $Q_3$: $\\tfrac{3(n+1)}{4}$th value.<br>$\\text{IQR}=Q_3-Q_1=20-12=\\mathbf{8}$.<br>IQR measures the spread of the middle 50%."),
+      C("Statistics · Cumulative frequency", "Where do you plot points for a cumulative frequency graph, and how do you read the median and quartiles?",
+        "Plot against the <strong>upper class boundary</strong> (cumulative total on the vertical axis); join with a smooth curve.<br>Median at $\\tfrac n2$, $Q_1$ at $\\tfrac n4$, $Q_3$ at $\\tfrac{3n}{4}$ on the vertical axis; read across and down."),
+      C("Statistics · Histograms", "Frequency density formula and what a histogram bar represents. A class of width 5 has frequency 30; what is its height?",
+        "$\\text{frequency density}=\\dfrac{\\text{frequency}}{\\text{class width}}$; <strong>area of bar = frequency</strong>.<br>Height $=30\\div5=\\mathbf{6}$.<br>The vertical axis is frequency density, not frequency."),
+      C("Probability · Basics", "State $P(A)$, $P(A^\\prime)$, expected frequency and relative frequency.",
+        "$P(A)=\\dfrac{\\text{favourable}}{\\text{total}}$; $0\\le P\\le1$; $P(A^\\prime)=1-P(A)$; all outcomes sum to 1.<br>Expected frequency $=n\\times P(A)$.<br>Relative frequency $=\\dfrac{\\text{times it happened}}{\\text{trials}}$ (more trials = better estimate)."),
+      C("Probability · Addition rule", "Addition rule for mutually exclusive events and for any two events.",
+        "Mutually exclusive: $P(A\\text{ or }B)=P(A)+P(B)$.<br>Any events: $P(A\\cup B)=P(A)+P(B)-P(A\\cap B)$.<br>Subtract the overlap so it is not counted twice."),
+      C("Probability · Independence", "Multiplication rule for independent events and the definition of independence.",
+        "$P(A\\cap B)=P(A)\\times P(B)$ for independent events (one does not affect the other).<br>If $P(A\\cap B)\\neq P(A)P(B)$ the events are <strong>not</strong> independent."),
+      C("Probability · Conditional", "Formula for conditional probability. 45 families: 16 own cats, 32 dogs, 12 both. Find $P(\\text{cat}\\mid\\text{dog})$.",
+        "$P(A\\mid B)=\\dfrac{P(A\\cap B)}{P(B)}$; from a Venn diagram: $\\dfrac{n(A\\cap B)}{n(B)}$.<br>The denominator is only the &ldquo;given&rdquo; group: $\\dfrac{12}{32}=\\mathbf{\\tfrac38}$."),
+      C("Probability · Tree diagrams", "Rules for tree diagrams. A bag has 3 red and 2 blue counters; two are taken without replacement. Find P(both red) and P(at least one blue).",
+        "<strong>Multiply along</strong> branches; <strong>add</strong> between outcomes; branches from one point sum to 1; without replacement the denominators drop by 1.<br>P(RR) $=\\tfrac35\\times\\tfrac24=\\mathbf{\\tfrac{3}{10}}$.<br>P(at least one blue) $=1-\\tfrac3{10}=\\mathbf{\\tfrac7{10}}$ (use the complement)."),
+      C("Sets · Notation", "Meaning of $\\cup$, $\\cap$, $A^\\prime$, $\\varnothing$, $\\in$, $\\xi$, and $n(A\\cup B)$ formula.",
+        "$\\cup$ union (or); $\\cap$ intersection (and); $A^\\prime$ not in $A$ (inside the rectangle); $\\varnothing$ empty set; $x\\in A$: $x$ is an element of $A$; $\\xi$ universal set.<br>$n(A\\cup B)=n(A)+n(B)-n(A\\cap B)$."),
+      C("Sets · De Morgan", "Express $(A\\cup B)^\\prime$ and $(A\\cap B)^\\prime$ in another way.",
+        "$(A\\cup B)^\\prime=A^\\prime\\cap B^\\prime$ (in neither)<br>$(A\\cap B)^\\prime=A^\\prime\\cup B^\\prime$ (not in both)<br>&ldquo;Break the bar, change the sign.&rdquo;"),
+      C("Sets · Set-builder", "Write $\\{x : x=3^{-n},\\ 1\\le n<4,\\ n\\in\\mathbb N\\}$ as a list. What traps does it contain?",
+        "$n=1,2,3$ (the $<4$ is <strong>strict</strong>, so 4 is excluded).<br>$3^{-n}=\\tfrac1{3^n}$: $\\mathbf{\\{\\tfrac13,\\tfrac19,\\tfrac1{27}\\}}$.<br>Check whether each inequality is $<$ or $\\le$; a negative power means &ldquo;one over&rdquo;."),
+      C("Sets · Venn diagrams", "Method for solving Venn diagram problems with totals and ratio clues.",
+        "1. Draw circles inside a rectangle (everyone surveyed).<br>2. Fill the <strong>intersection</strong> first, then the <strong>outside</strong>.<br>3. Union $=$ total $-$ neither.<br>4. Apply ratio clues to the <strong>whole circle totals</strong>, then subtract the overlap for each &ldquo;only&rdquo; region.<br>5. <strong>Check</strong> all regions add to the stated total."),
+    ];
+  </script>
+</body>
+</html>
