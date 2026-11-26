@@ -39,6 +39,15 @@ table{border-collapse:collapse;width:100%;font-size:12.5px}td,th{border-bottom:1
 th{color:var(--mut);font-weight:600}
 details{margin-top:12px}summary{cursor:pointer;font-weight:600}
 .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin:0 20px 20px}
+
+.tl{list-style:none;margin:0;padding:0 0 0 18px;border-left:2px solid var(--line)}
+.tl li{position:relative;padding:0 0 14px 14px}
+.tl li:before{content:"";position:absolute;left:-25px;top:5px;width:10px;height:10px;border-radius:50%;background:#fff;border:2px solid var(--pafc)}
+.tl li.und:before{border-style:dashed;border-color:#999}
+.tl .dt{font-weight:700;font-size:12.5px;color:var(--pafc)}.tl li.und .dt{color:#777}
+.tl .ti{font-weight:600}.tl .fn{font-size:11.5px;color:var(--mut);word-break:break-all}
+.tl .us{font-size:12.5px;margin-top:2px}.tl .dn{font-size:11.5px;color:#8a5a00}
+.tl .ty{font-size:10px;font-weight:700;background:#eef3fb;border:1px solid #c7d6ee;border-radius:4px;padding:0 5px;margin-left:6px;color:var(--pafc)}
 </style></head><body>
 <header>
  <h1>PAF (200067) – Postal Address File: interaction map
@@ -64,6 +73,7 @@ details{margin-top:12px}summary{cursor:pointer;font-weight:600}
  <div class="card"><h2>Changes captured so far (AS-IS → TO-BE)</h2><table id="chg"></table></div>
  <div class="card"><h2>PAF internals (as documented)</h2><table id="tech"></table></div>
 </div>
+<div class="card" style="margin:0 20px 20px"><h2>Source documents – chronological by content date</h2><ol class="tl" id="tl"></ol></div>
 
 <script>
 /* =====================================================================
@@ -165,7 +175,7 @@ const CHANGES=[
  ['Siebel (Int. 8)','Shown on AOD p.15','Decommissioned','AOD 1.6'],
  ['Cut-over ops','—','MQ (QPP1) queues drained/stopped, HTTP services stopped on CSC; restart order: MQ queues → apps; FTP jobs restart once network ready','AMDD [IP redacted]'],
  ['Unchanged','—','Scheduler (OPC), application code & functionality, Endevor release route, user roles','AOD [IP redacted]; AMDD 3.1'],
- ['Pending','—','Further functional/interface changes: none found in any document so','—']
+ ['Pending','—','Further functional/interface changes: none found in any document so far','—']
 ];
 const TECH=[
  ['Platform','IBM z/OS 1.13; zBC12 2828-H13 (prod POH7 660 MIPS; non-prod POH8 80 MIPS)'],
@@ -256,5 +266,21 @@ document.querySelectorAll('#mode button').forEach(b=>b.onclick=()=>{
 
 document.getElementById('chg').innerHTML='<tr><th>Area</th><th>AS-IS</th><th>TO-BE</th><th>Ref</th></tr>'+CHANGES.map(r=>'<tr>'+r.map(c=>'<td>'+c+'</td>').join('')+'</tr>').join('');
 document.getElementById('tech').innerHTML=TECH.map(r=>`<tr><th>${r[0]}</th><td>${r[1]}</td></tr>`).join('');
+const DOCS=[
+ {d:'Dec 2010',t:"PAF Programmers' Guide (PAF Digest) – Edition 7",ty:'Product reference',f:'PAF_Digest_Reference.pdf',dn:'Text states published 2010; PDF created Dec 2010 (cover shows v4.0).',u:'PAF product set (Mainfile, Keychain, Changes, Compressed Standard, PIF, UDPRN, NYB, Multiple Residence, Postzon) and file/table structures – context for the outbound product interfaces.'},
+ {d:'2 Apr 2012',t:'PAF Table List – EBS RMG Mainframe Team (v1.0)',ty:'Data model',f:'PAF_Tables.pdf',dn:'Dated from its version history (v1.0, 2 Apr 2012, CSC).',u:'DB2 table/index inventory behind the PAF component (TPF*/VPF* naming).'},
+ {d:'6 Nov 2014',t:'MG001 Mainframe AMDD – Firewall Rules workbook',ty:'Workbook',f:'MG001_Mainframe_AMDD_-_Firewall_Rules.xlsx',dn:'Date = file creation (Atos Origin). The supplied content is a mainframe administration-responsibilities task list, not firewall rules – possibly the wrong file.',u:'Not used for interfaces; firewall/protocol detail taken from AMDD §2.8 instead.'},
+ {d:'5 Mar 2015',t:'Monitoring Events workbook (PAF, RMGTT, CREDO, D2D, Halcon)',ty:'Operations',f:'MonitoringEvents_PAF.xlsx',dn:'Date = file creation (author shaalam).',u:'PAF key business functions and the OPC schedules/jobs monitored (online, monthly extract, Pegasus, daily products, RMGTT Thursday file, FTP).'},
+ {d:'5 Jun 2015',t:'Mainframe Migration Design (MDD) PPM-20742-MDD0012 v0.6 Final',ty:'Migration design',f:'PPM-20742-MDD0012_Mainframe_Final_v0.6.pdf',dn:'Dated 05/06/2015 in its header.',u:'ATOS cut-over: POH7/POH8 LPARs, BBP data centre, IP switching, backup/restore from CSC, DR.'},
+ {d:'30 Jul 2015',t:'Endevor Package Checklist v0.1',ty:'Release control',f:'Endeavour_SourceControl_for_PAF_.pdf',dn:'Dated 30 July 2015.',u:'Package naming, STANDARD/EMERGENCY types, CAST report RC=0 gate (release route).'},
+ {d:'31 Jul 2015',t:'Demarcation of Responsibilities – Mainframe & DB2',ty:'Responsibilities',f:'DemarcationOfResponsibilities_Mainframes.xls; DemarcationOfResponsbilitiesDB2.xls',dn:'AOD cites "Draft 31 July 2015"; AMDD cites base versions of 29-Oct-2014 (Mainframe) and 7-Nov-2014 (DB2). The supplied files carry no date.',u:'Task ownership between application management and ATOS infrastructure – CICS, batch scheduling, storage, Endevor, RACF, DB2 DBA.'},
+ {d:'17 Sep 2015',t:'MG001 Mainframe Application Migration Design (AMDD) v0.1.3',ty:'Migration design',f:'MG001_Mainframe_AMDD_FINAL_v0.1.3.pdf',dn:'Dated 17 Sept 2015 (first draft 16 Dec 2014).',u:'Main source: AS-IS interface list with IFC refs, protocols/ports, TO-BE migration approach, firewall/IP/shared-service changes.'},
+ {d:'2016',t:'Mainframe Development and Release Process (PAF Endevor release management)',ty:'Process',f:'Mainframe_Development_And_Release_Process.pdf',dn:'© Capgemini 2016; AOD rev 2.2 (15-Aug-2016) updated its route-to-live section.',u:'T→Q→A→I→P route, release slots, roles, entry/exit criteria.'},
+ {d:'15 Aug 2016',t:'Application Overview Document 067-PAF v2.0 (rev 2.2)',ty:'Baseline AOD',f:'RMG_Application_Overview_Document_067-PAF_PAF_v19.pdf',dn:'First draft 20 Nov 2014; v2.0 post-migration cut-over 21 Sep 2015; latest change 15 Aug 2016.',u:'Baseline AS-IS: business, users, interactions 1-12, hosting, support hours, risks; transition changes (ATOS, Capgemini).'},
+ {d:'Undated',und:1,t:'PAF Online Screen Navigation',ty:'User guide',f:'PAF_Online_Screen_Navigation.pdf',dn:'No date in content; referenced by AOD §6.3. Screens captured in production (maintenance options disabled).',u:"PCDA main menu / screen tree for the AMU users' CICS interaction."},
+ {d:'Undated (likely later)',und:1,t:'PAF Daily Files to Lockheed Martin – BIG LLD (I200067-624-E000609)',ty:'Interface design',f:'PAF_Daily_Files_to_Lockheed_Confluence.pdf',dn:'Confluence export, no date. BIG/FMS, DataPower and a GDPR field suggest it post-dates the 2015 migration docs (my inference).',u:'TO-BE change: Lockheed feed re-routed via BIG FMS (FTP in, FTPS out), status Live.'},
+ {d:'Undated (likely later)',und:1,t:'MEARS Abbreviations',ty:'Glossary',f:'MEARS_Abbreviations_Confluence.pdf',dn:'Confluence export, no date. Mentions GCP/FDP, which suggests a later period (my inference).',u:'Glossary for the Lockheed MEARS / Address Interpretation context (LMCC, FLA, DRF, ADF).'}
+];
+document.getElementById('tl').innerHTML=DOCS.map(x=>`<li class="${x.und?'und':''}"><div class="dt">${x.d}</div><div><span class="ti">${x.t}</span><span class="ty">${x.ty}</span></div><div class="fn">${x.f}</div><div class="us">${x.u}</div><div class="dn">${x.dn}</div></li>`).join('');
 draw();list();note();
 </script></body></html>
