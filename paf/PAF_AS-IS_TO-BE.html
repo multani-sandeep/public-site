@@ -51,18 +51,13 @@ details{margin-top:12px}summary{cursor:pointer;font-weight:600}
 </style></head><body>
 <header>
  <h1>PAF (200067) – Postal Address File: interaction map
-  <small>Sources: PAF AOD v2.0, MG001 Mainframe AMDD v0.1.3, MDD v0.6, Lockheed BIG LLD, monitoring & demarcation sheets</small></h1>
+  <small>AS-IS: AOD, AMDD, MDD, BIG LLD & ops sheets (2010-16) · TO-BE: PAF modernisation kick-off, 24 Nov 2026</small></h1>
  <div class="seg" id="mode"><button data-m="asis" class="on">AS-IS</button><button data-m="tobe">TO-BE</button><button data-m="diff">Changes only</button></div>
  
 </header>
 <main>
  <div class="card"><svg id="svg" viewBox="0 0 1100 710"></svg>
-  <div class="legend">
-   <span><i style="border-color:#2f6f4f;background:#e6f3ec"></i>Internal system</span>
-   <span><i style="border-color:#b3261e;background:#fbe9e7"></i>External / 3rd party</span>
-   <span><i style="border-color:#b58a00;background:#fff6cf"></i>Intermediary (BIG/EDG)</span>
-   <span><i style="border-color:#1a7f37"></i>New</span><span><i style="border-color:#c77700"></i>Changed</span><span><i style="border-color:#b3261e"></i>Removed</span>
-  </div></div>
+  <div class="legend" id="legend"></div></div>
  <aside style="display:flex;flex-direction:column;gap:14px">
   <div class="card warn" id="note"></div>
   <div class="card"><h2>Interactions &amp; interfaces <span style="text-transform:none;font-weight:400">(click to trace)</span></h2><ul id="ixlist"></ul></div>
@@ -70,29 +65,29 @@ details{margin-top:12px}summary{cursor:pointer;font-weight:600}
  </aside>
 </main>
 <div class="cols">
- <div class="card"><h2>Changes captured so far (AS-IS → TO-BE)</h2><table id="chg"></table></div>
- <div class="card"><h2>PAF internals (as documented)</h2><table id="tech"></table></div>
+ <div class="card"><h2>AS-IS → TO-BE changes (from kick-off)</h2><table id="chg"></table></div>
+ <div class="card"><h2>PAF internals (as documented, AS-IS)</h2><table id="tech"></table></div>
+ <div class="card"><h2>Phase 1 plan</h2><div id="plan"></div></div>
 </div>
 <div class="card" style="margin:0 20px 20px"><h2>Source documents – chronological by content date</h2><ol class="tl" id="tl"></ol></div>
 
 <script>
 /* =====================================================================
    DATA MODEL – edit/extend here when more documents arrive.
-   node/edge .tobe = {s:'new'|'chg'|'rem', n:'note'} ; omit => unchanged.
+   (AS-IS model; TO-BE model is further down)
    .asis===false => does not exist AS-IS (new in TO-BE).
    edge: ix = AOD interaction no.; ifc = AMDD interface ref (e.g. 933-000)
    ===================================================================== */
 const NODES={
- paf:{x:430,y:300,w:240,h:170,t:'PAF (200067)',sub:'z/OS · DB2 · CICS · COBOL',hostAs:'Hosted: CSC data centre (POH7/POH8)',hostTo:'Hosted: ATOS BBP data centre (POH7/POH8)',k:'paf',
+ paf:{x:430,y:300,w:240,h:170,t:'PAF (200067)',sub:'z/OS · DB2 · CICS · COBOL',hostAs:'Hosted: ATOS BBP data centre (POH7/POH8)',k:'paf',
   d:{Role:'UK address database (~29M addresses, ~1.8M postcodes, ~1.3M changes/yr, 35+ products). L2 application, high criticality.',
      Platform:'IBM z/OS mainframe: POH7 (prod), POH8 (non-prod); DB2 10.1, CICS 4.1, COBOL 3.4.1',Users:'AMU (Portsmouth) & contact centres – ~60 maintenance, ~40-50 enquiry',
      Monitoring:'KBF: online schedules PFPMD@SA/SB (start) & @MA/MB (check); monthly extract (3rd weekend; 2nd in Dec). Non-KBF: Pegasus PFPMD080/085/090/095/100, daily products PFPMD200, RMGTT PFPMW075/PFPEA160, FTP CPFPXM05-60. 09:00 OPC health check.',
-     Release:'Endevor packages (naming aaP2sggggggggggn; slots B pre-batch, D/E post-batch, H 11:00, Z emergency); T→Q→A→I→P'},
-  tobe:{s:'chg',n:'Migrated from CSC to ATOS BBP data centre. Application, OPC schedules, RACF credentials and functionality unchanged ("no functional changes"). CSC support users removed, NSP users added; support by Capgemini; ATOS CA-Automation Point replaces CSC monitoring tooling (monitoring events unchanged). DR at BBP (hot standby, RTO 48h).'}},
+     Release:'Endevor packages (naming aaP2sggggggggggn; slots B pre-batch, D/E post-batch, H 11:00, Z emergency); T→Q→A→I→P'}},
  user:{x:455,y:60,w:190,h:48,t:'AMU / Contact Centre users',sub:'PCDA CICS screens · Portsmouth',k:'int',d:{Access:'CICS (PCDA) transactions via RMG desktop; must be available by 06:00 Mon-Sat; navigation per PAF Online Screen Navigation doc'}},
  big:{x:225,y:372,w:110,h:44,t:'BIG',sub:'Integration Gateway',k:'mid',d:{Role:'Strategic integration gateway (DataPower, ESB, FMS file mediation). Intermediary for outbound FTP/SFTP to 3rd parties (AFD, Optecon, Dataforce, CACI)',Issue:'Monthly extract transfers via BIG need manual monitoring'}},
  edg:{x:225,y:190,w:110,h:44,t:'EDG',sub:'Intermediary',k:'mid',d:{Role:'Intermediary shown feeding RMG Siebel (AOD p.15)'}},
- siebel:{x:30,y:190,w:130,h:44,t:'Siebel (094-RMG)',sub:'RMG Siebel',k:'int',d:{Status:'Interaction 8 – decommissioned per AOD 1.6; still in AMDD firewall list (MQ) and monitoring text'},tobe:{s:'rem',n:'Decommissioned (Interaction 8). Still drawn on AOD p.15 and in the PAF monitoring event text – stale.'}},
+ siebel:{x:30,y:190,w:130,h:44,t:'Siebel (094-RMG)',sub:'RMG Siebel',k:'int',asisOnly:1,d:{Status:'Interaction 8 – decommissioned per AOD 1.6, but still on the AOD p.15 diagram, in the AMDD firewall list (MQ) and in the monitoring text (stale references)'}},
  afd:{x:30,y:290,w:130,h:44,t:'AFD (E000215)',sub:'3rd party',k:'ext',d:{Role:'Produces PAF daily & monthly products for end customers'}},
  df:{x:30,y:350,w:130,h:44,t:'Dataforce (E000017)',sub:'3rd party',k:'ext',d:{Role:'Receives KEYCHAIN, CHANGES1, CHANGES2 products and daily PAF update (job CPFPDF01)'}},
  caci:{x:30,y:410,w:130,h:44,t:'CACI (E000263)',sub:'3rd party',k:'ext',d:{Role:'Receives Walksort products feed (IFC 182-000)'}},
@@ -127,11 +122,10 @@ const EDGES=[
  {id:'bo',a:'big',b:'opt',ix:4,dir:'f',l:'Delivery Office file → Optecon',via:['pb']},
  {id:'bd',a:'big',b:'df',ix:11,ifc:'937-000',dir:'f',l:'KEYCHAIN, CHANGES1, CHANGES2 + daily update → Dataforce',via:['pb']},
  {id:'bl',a:'big',b:'lm',ix:12,ifc:'312/313-000',dir:'f',l:'Daily & monthly files → Lockheed Martin',via:['pb'],
-  note:'AS-IS: AMDD lists direct FTP flat-file feeds (312-000 daily, 313-000 monthly); AOD p.10 draws it via BIG.',
-  tobe:{s:'chg',n:'Now a BIG FMS interface I200067-MULTIPLE-E000609 (WPP2656, status Live). PAF FTP-pushes to FMS incoming dirs (624 daily LM######.zip; 625 monthly AI_Postcode_to_DO_Product.zip); FMS moves, archives, then FTPS-pushes to Lockheed (/to_ai, /to_ai/DO). Pass-through, no transformation, DataPower + ESB.'}},
+  note:'Current (Live) design: BIG FMS interface I200067-MULTIPLE-E000609 – PAF FTP-pushes to FMS incoming dirs (624 daily LM######.zip; 625 monthly AI_Postcode_to_DO_Product.zip); FMS moves/archives then FTPS-pushes to Lockheed (/to_ai, /to_ai/DO). Pass-through, no transformation. The 2015 AMDD still listed direct FTP (312/313-000).'},
  {id:'bc',a:'big',b:'caci',ifc:'182-000',dir:'f',l:'Walksort products feed → CACI',via:['pb']},
  {id:'pe',a:'paf',b:'edg',dir:'f',l:'(AOD p.15)'},
- {id:'es',a:'edg',b:'siebel',ix:8,dir:'f',l:'SEIBEL – decommissioned',tobe:{s:'rem',n:'Interface decommissioned.'}},
+ {id:'es',a:'edg',b:'siebel',ix:8,dir:'f',l:'SEIBEL – decommissioned',note:'Decommissioned per AOD 1.6 (drawn here because AOD p.15 still shows it).'},
  {id:'atf',a:'paf',b:'atf',ix:2,ifc:'1466-000',dir:'b',l:'Database sync with ATF (ODBC/JDBC, daily)'},
  {id:'peg',a:'paf',b:'peg',ix:3,dir:'b',l:'Database sync; daily walk & DO updates'},
  {id:'wdb',a:'paf',b:'walk',ifc:'936-000',dir:'f',l:'Daily update → WalkDB (ODBC/JDBC)'},
@@ -156,93 +150,202 @@ const EDGES=[
  {id:'cw',a:'cs',b:'web',dir:'f',l:'Client Server → Internet Web'},
  {id:'us',a:'user',b:'paf',dir:'b',l:'CICS/PCDA online maintenance & enquiry'}
 ];
-const DEFAULT_TOBE='No functional change. Mainframe address range is carried over to ATOS at cut-over, so endpoint IPs/config are unchanged; the mainframe is the FTP client so targets are unchanged. ATOS firewalls are closed-by-default – protocol/port rules must be opened for this flow.';
-const TOBE_SUMMARY=[
- 'Mainframe hosting moves from the CSC data centre to ATOS Birmingham Business Park (POH7 prod / POH8 non-prod).',
- 'Original mainframe IP range is re-assigned to the ATOS mainframe at cut-over → no config change on partner systems.',
- 'ATOS firewalls closed-by-default: rules required for every interface (FTP 20-22, ODBC/JDBC, HTTP(S), MQ…).',
- 'ATOS provides SMTP gateway and DNS; ATOS CA-Automation Point replaces CSC monitoring tools.',
- 'Lockheed Martin daily/monthly files re-routed through BIG FMS (FTP in, FTPS out).',
- 'Siebel interface (8) decommissioned.'];
-const CHANGES=[
- ['Hosting','CSC data centre; POH7/POH8','ATOS BBP data centre; same LPARs, backup restored via secure transfer; DR hot standby at BBP','AMDD 1.2, 3.1.5; MDD'],
- ['Network / IPs','CSC address range','Same range re-assigned to ATOS mainframe (plus ATOS-native addresses); partner IPs unchanged; later stages update FTP targets as targets migrate','AMDD 2.8, [IP redacted].3'],
- ['Firewall','CSC rules','ATOS closed-by-default; explicit rules for all mainframe comms (verified at dress rehearsal)','AMDD A02, 4.1.6'],
- ['Shared services','CSC SMTP gateway, DNS, monitoring','ATOS SMTP gateway & DNS; CA-Automation Point monitoring (events unchanged)','AMDD 3.1, 4.1.7'],
- ['Access / security','CSC staff IDs; RACF','RACF restored as-is; CSC IDs removed, NSP IDs added; credentials unchanged','AMDD 3.1.4'],
- ['Support model','CSC','Capgemini app support; ATOS infra/DB2/CICS admin (demarcation agreed 31-Jul-2015); mail IDs → CG_ITST_LOT2B_Mainframe','AOD [IP redacted], 8.4; Demarcation xls'],
- ['Lockheed Martin feed','Direct FTP (IFC 312/313)','BIG FMS: FTP in → move/archive → FTPS out (I200067-MULTIPLE-E000609, Live)','LLD Confluence'],
- ['Siebel (Int. 8)','Shown on AOD p.15','Decommissioned','AOD 1.6'],
- ['Cut-over ops','—','MQ (QPP1) queues drained/stopped, HTTP services stopped on CSC; restart order: MQ queues → apps; FTP jobs restart once network ready','AMDD [IP redacted]'],
- ['Unchanged','—','Scheduler (OPC), application code & functionality, Endevor release route, user roles','AOD [IP redacted]; AMDD 3.1'],
- ['Pending','—','Further functional/interface changes: none found in any document so far','—']
-];
+
+/* ---------------- AS-IS reference tables ---------------- */
 const TECH=[
- ['Platform','IBM z/OS 1.13; zBC12 2828-H13 (prod POH7 660 MIPS; non-prod POH8 80 MIPS)'],
+ ['Platform','IBM z/OS mainframe (POH7 prod / POH8 non-prod), hosted by ATOS at BBP since the 2015 CSC→ATOS migration; "PCDA" is the mainframe application, "PAF" the output file'],
  ['Database','DB2 10.1 (CM8 mode); tables TPF*, views VPF* (see PAF Tables doc)'],
  ['Online','CICS 4.1 – PCDA screens; Postcodes intranet look-up; AMC Online'],
  ['Languages','COBOL 3.4.1, Assembler, REXX, SAS 9.1, SOLVE 4.0, JCL'],
  ['Batch','OPC/TWS; Monthly Extract 3rd weekend (2nd in Dec); nightly ATF changes ~02:00'],
- ['Products','Mainfile, Alias, Keychain, Changes, Compressed Standard, Ranges, PIF, UDPRN, Not Yet Built, Just Built, Multiple Residence, Postzon (PAF Digest)'],
+ ['Products','Mainfile, Alias, Keychain, Changes, Compressed Standard, Ranges, Expanded, PIF (+Changes), UDPRN, BFPO, Not Yet Built, Just Built, Multiple Residence, Postzon; all also in CSV (Programmers\' Guide Ed.7 v6, 2013)'],
  ['Transfer','FTP, SFTP, FTPS, SMTP, ODBC/JDBC, MQ (QPP1), HTTPS via BIG/EDG/FMS'],
  ['Release','Endevor package + checklist (CAST report RC=0; STANDARD vs EMERGENCY); T Dev · E Education · Q System test · A UAT · I Pre-prod · P Prod'],
- ['Responsibilities','Infra admin (CICS, storage, batch scheduling tool, RACF, Endevor admin, DB2 DBA) mainly ATOS (RA); application team consulted/informed; DB design & change requests raised by app team'],
+ ['Responsibilities (2015)','Infra admin (CICS, storage, batch scheduling tool, RACF, Endevor admin, DB2 DBA) mainly ATOS; app team consulted/informed. 2026 kick-off: TCS controls PCDA code & batch jobs; RMG manages operational access'],
  ['Service hours','Mon-Fri 07:00-19:00, Sat 07:00-17:30 BST; maintenance Sun 20:00-23:00; support 24x7'],
  ['DR','Prod: BBP hot standby, RTO 48h; Sev1 SLA 120 min'],
- ['Key risks','FTP interfaces, terminal emulation, monitoring, infrastructure (score 12)']
+ ['Key risks','FTP interfaces, terminal emulation, monitoring, infrastructure (score 12)'],
+ ['Staleness','AOD is 2014-16 vintage: support parties, interface list and volumes may have moved on (kick-off notes ~400-600K new addresses/yr, ~29M addresses)']
+];
+
+/* =====================================================================
+   TO-BE MODEL – source: PAF Modernisation kick-off, 24 Nov 2026 (Teams AI
+   notes + handwritten notes). Datatonic Phase 1, indicative only.
+   s: new | kept | chg | tbc | p2   (p2 = future phase)
+   ===================================================================== */
+const SRC='Kick-off 24-Nov-2026';
+const TN={
+ // inputs (left)
+ amu:{x:20,y:50,w:190,h:56,t:'AMU / Contact Centre users',sub:'address updates today via PCDA CICS',s:'chg',k:'int',d:{Role:'Enter address changes. Phase 1 gives a Salesforce-connected web app with direct entry and role-based access (UAT with AMU & CX stakeholders).',Note:'Replacement of PCDA CICS screens is implied, not stated – confirm.'}},
+ sfdc:{x:20,y:120,w:190,h:56,t:'Salesforce (CRM)',sub:'address-change cases',s:'chg',k:'int',d:{Role:'Existing CRM (migrated to Salesforce earlier). Cases are ingested into the new change workflow.',Risk:'Post-migration capacity problems: changes took hours not minutes; queue still problematic 18 months on → capacity planning & load testing needed.'}},
+ la:{x:20,y:190,w:190,h:56,t:'Local authorities (200+)',sub:'new addresses / NYB',s:'kept',k:'ext',d:{Role:'Submit schemes, road names, plots, proposed numbering in varying formats; standardised submission & minimum data set being trialled.',Volume:'~400K new addresses/yr per recap (handwritten notes say 600K pa NYB – to reconcile).'}},
+ ext:{x:20,y:260,w:190,h:56,t:'External authoritative sources',sub:'for verification',s:'new',k:'ext',d:{Role:'Checked during automated verification of address changes (indicative; sources not named).'}},
+ rt:{x:20,y:330,w:190,h:56,t:'Route Manager / Pegasus',sub:'walks · delivery offices',s:'tbc',k:'int',d:{Role:'Master for associating new postcodes with delivery offices, delivery points and walks (FMO; "same as Pegasus"). Pegasus updates addresses and feeds data back to PAF.',Scope:'Walk-management and other legacy PCDA functions to be reviewed – may be excluded.'}},
+ cr:{x:20,y:400,w:190,h:56,t:'CREDO & other mainframe apps',sub:'redirections · Doxford team',s:'tbc',k:'int',d:{Role:'PAF is linked to other mainframe apps; redirections matched against PAF (two mainframes talk to find a team). Unmatched redirection addresses need manual intervention by the Doxford team.',Scope:'"Migrating PAF = migrating all of the below" – scope of dependent apps to confirm.'}},
+ // platform modules
+ wf:{x:270,y:90,w:170,h:70,t:'Change-management web app',sub:'Salesforce case ingestion + direct entry · RBAC',s:'new',k:'plat',d:{Role:'Phase 1 deliverable 3: Salesforce-connected web app for address updates; supports updating more than one address at a time (business ask).',Phase:'Phase 1 – committed (milestone ~Week 10)'}},
+ ver:{x:465,y:90,w:170,h:70,t:'Automated verification',sub:'confidence score · human review · audit log',s:'new',k:'plat',d:{Role:'Checks PAF formatting, UDPRN integrity, duplicates/conflicts, fraud indicators and external sources. Confidence score decides auto-approve vs route to human reviewer; every decision logged.',Phase:'Demonstrated; quality gates automated per business ask (Phase 1 scope boundary to confirm)'}},
+ enr:{x:660,y:90,w:170,h:70,t:'Data enrichment',sub:'class · coords · letterbox · hazards · provenance',s:'p2',k:'plat',d:{Role:'Residential/commercial classification, coordinates, letterbox location, logistics access, hazards, planning context; sources traceable for audit/regulation.',Phase:'Demonstrated as vision; Phase 2 "quality improvement" direction – not in the four Phase 1 deliverables'}},
+ ing:{x:270,y:180,w:170,h:70,t:'Ingestion & migration pipelines',sub:'historic load (~29M) + daily incremental',s:'new',k:'plat',d:{Role:'Loads historical address population from the mainframe, then processes daily changes incrementally.',Phase:'Phase 1 deliverable 2'}},
+ core:{x:465,y:180,w:170,h:70,t:'Core address data platform',sub:'governed master asset (GCP, indicative)',s:'new',k:'plat',d:{Role:'Scalable, cloud-native store of ~29M addresses (Cloud Run / Cloud SQL named as indicative only; final choices after discovery & design workshops).',Phase:'Phase 1 deliverable 1 (foundations)'}},
+ api:{x:660,y:180,w:170,h:70,t:'REST API & lookups',sub:'address / postcode lookup',s:'new',k:'plat',d:{Role:'Real-time REST API for address lookup; targeted postcode/address lookups. Geospatial views and MCP/conversational interface are future options.',Phase:'REST API in Phase 1; geospatial & MCP later'}},
+ rec:{x:270,y:270,w:170,h:70,t:'Reconciliation & parity testing',sub:'automated compare vs mainframe',s:'new',k:'plat',d:{Role:'Automated reconciliation and data-quality rules compare new platform with the existing source; monthly parallel runs; RMG decides when the new app is proven.',Phase:'Phase 1 – through Week 18'}},
+ out:{x:660,y:270,w:170,h:70,t:'Feed & export builder',sub:'11 data products/feeds · fixed-width + CSV',s:'new',k:'plat',d:{Role:'Rebuilds the identified downstream products/interfaces, preserving legacy file and CSV export patterns, with parity evidence.',Open:'Which 11 products/feeds is not yet listed – confirm against AS-IS interface list (35+ products in AOD).'}},
+ // consumers (right)
+ cons:{x:890,y:50,w:190,h:70,t:'Existing file consumers',sub:'resellers · solution providers · internal feeds',s:'chg',k:'ext',d:{Role:'Current contractual consumers of PAF files (AS-IS: AFD, Dataforce, Lockheed Martin via BIG, Optecon, CACI, RMGTT, GB Group, RSA, Baloo, PSP, ATF, Pegasus, etc.).',Constraint:'Regulated model: RM generates PAF files, sells to resellers and in some cases buys enriched data back – architecture must not route data internally in a way that creates regulatory concerns (self-dealing).'}},
+ sup:{x:890,y:135,w:190,h:56,t:'External data supplier',sub:'CSV conversion · QA · IP protection',s:'kept',k:'ext',d:{Role:'Receives fixed-width files, creates CSV versions, performs quality testing and helps protect RM IP.',Action:'Must be in requirements, UAT and sign-off planning (owner: John Batchelor / Datatonic). Supplier not named in notes.'}},
+ os:{x:890,y:205,w:190,h:56,t:'Ordnance Survey',sub:'map data · royalty',s:'tbc',k:'ext',d:{Role:'RM supplies address data, receives mapping data/rights; IP and royalty arrangements must be preserved.'}},
+ apic:{x:890,y:275,w:190,h:56,t:'API consumers',sub:'RM teams · apps · developers · approved externals',s:'new',k:'ext',d:{Role:'New real-time channel alongside file exports.'}},
+ fut:{x:890,y:345,w:190,h:56,t:'Agentic / MCP / geospatial access',sub:'proactive quality assessment',s:'p2',k:'ext',d:{Role:'Longer-term: proactive assessment and improvement of the dataset, agentic processing with human oversight, conversational/MCP interface.',Phase:'Phase 2 / future'}},
+ // legacy
+ mf:{x:330,y:420,w:440,h:80,t:'Legacy PCDA / PAF mainframe (z/OS · DB2 · COBOL · CICS)',sub:'kept running in parallel – not switched off in Phase 1',s:'kept',k:'paf',d:{Role:'Source of the historical load and daily changes; remains system of record during parallel run. Existing batch extracts and FTP/BIG feeds continue (see AS-IS view).',Cutover:'Final production cutover is NOT a committed Phase 1 activity; planned separately.'}},
+ tcs:{x:40,y:468,w:170,h:56,t:'TCS',sub:'controls PCDA code & batch jobs',s:'tbc',k:'ext',d:{Role:'Controls access to PCDA source code and batch jobs; RMG mainly manages operational access.',Action:'John Batchelor to set up TCS contact (Abhinav); Datatonic to engage for code, batch jobs and operational knowledge.'}}
+};
+// edges: id,a,b,s,l,dir ('f'|'b'),via (optional waypoints)
+const TE=[
+ {id:'e1',a:'amu',b:'wf',s:'chg',dir:'f',l:'Direct entry of address changes (role-based access)'},
+ {id:'e2',a:'sfdc',b:'wf',s:'new',dir:'f',l:'Salesforce case ingestion'},
+ {id:'e3',a:'la',b:'wf',s:'tbc',dir:'f',l:'Local-authority submissions (route into workflow to confirm)'},
+ {id:'e4',a:'ext',b:'ver',s:'new',dir:'f',l:'External authoritative-source checks'},
+ {id:'e5',a:'wf',b:'ver',s:'new',dir:'f',l:'Proposed change → verification & confidence score'},
+ {id:'e6',a:'ver',b:'core',s:'new',dir:'f',l:'Approved changes (auto or human-reviewed) + audit log'},
+ {id:'e7',a:'ing',b:'core',s:'new',dir:'f',l:'Historic load and daily incremental changes'},
+ {id:'e8',a:'core',b:'enr',s:'p2',dir:'f',l:'Enrichment of address records'},
+ {id:'e9',a:'core',b:'api',s:'new',dir:'f',l:'Serving layer'},
+ {id:'e10',a:'core',b:'out',s:'new',dir:'f',l:'Product / feed generation'},
+ {id:'e11',a:'rec',b:'core',s:'new',dir:'b',l:'Reconciliation & data-quality rules'},
+ {id:'e12',a:'out',b:'cons',s:'chg',dir:'f',l:'Rebuilt file exports to existing consumers (parity with legacy patterns)',pts:[[830,305],[860,305],[860,85],[890,85]]},
+ {id:'e13',a:'out',b:'sup',s:'chg',dir:'f',l:'Fixed-width files to external supplier for CSV/QA/IP',pts:[[830,300],[850,300],[850,163],[890,163]]},
+ {id:'e14',a:'out',b:'os',s:'tbc',dir:'f',l:'Address data supplied to Ordnance Survey (royalty/IP) – flow to confirm',pts:[[830,310],[870,310],[870,233],[890,233]]},
+ {id:'e15',a:'api',b:'apic',s:'new',dir:'f',l:'Real-time API access',pts:[[830,215],[865,215],[865,303],[890,303]]},
+ {id:'e16',a:'api',b:'fut',s:'p2',dir:'f',l:'Geospatial / MCP / agentic access (future)',pts:[[830,225],[875,225],[875,373],[890,373]]},
+ {id:'e17',a:'rt',b:'core',s:'tbc',dir:'b',l:'Walk / delivery-office association (Route Manager, Pegasus) – scope under review',pts:[[210,358],[245,358],[245,355],[455,355],[455,225],[465,225]]},
+ {id:'e18',a:'cr',b:'core',s:'tbc',dir:'b',l:'Redirections / other mainframe apps; manual fix of unmatched addresses by Doxford team',pts:[[210,428],[235,428],[235,365],[450,365],[450,238],[465,238]]},
+ {id:'e19',a:'mf',b:'ing',s:'new',dir:'f',l:'Historical load from mainframe, then daily changes',pts:[[330,460],[225,460],[225,215],[270,215]]},
+ {id:'e20',a:'mf',b:'rec',s:'new',dir:'b',l:'Parity comparison (monthly parallel runs)',pts:[[355,420],[355,340]]},
+ {id:'e21',a:'mf',b:'cons',s:'kept',dir:'f',l:'Existing batch/FTP/BIG feeds continue during parallel run',pts:[[770,470],[1090,470],[1090,100],[1080,100]]},
+ {id:'e22',a:'tcs',b:'mf',s:'tbc',dir:'f',l:'Access to PCDA code, batch jobs and know-how needed for discovery'}
+];
+const PHASE1=[
+ ['Wk 0-4','Discovery & design complete (HLD, ADRs, TDA review)'],
+ ['~Wk 10','GCP foundations (IAM, IaC, logging, CI/CD) + change workflow'],
+ ['Wk 10-18','Data products/feeds, APIs, parity testing (monthly runs vs legacy)'],
+ ['Wk 19 (Mar 2027)','Operational runbooks & handover. Production cutover NOT committed.']
+];
+const OPEN=[
+ 'Which 11 data products/feeds are in Phase 1 (map to AS-IS interfaces)?',
+ 'Are walk-management and other legacy PCDA functions still required? (Dom)',
+ 'Regulatory design for third-party resale/repurchase and self-dealing (Dom, Datatonic)',
+ 'External data supplier: identity, CSV conversion, QA & IP needs in UAT (John Batchelor)',
+ 'TCS access to PCDA code & batch jobs (John Batchelor)',
+ 'Dependent mainframe apps (CREDO etc.) and Route Manager/Pegasus scope',
+ 'Volume mismatch: ~400K vs 600K new addresses/yr; "32.5 Mn" in handwritten notes vs ~29M addresses in the recap',
+ 'Capacity/load testing given the Salesforce migration queue problems',
+ 'Replacement of PCDA CICS screens (implied) – confirm'
+];
+const CHANGES=[
+ ['Platform','z/OS mainframe PCDA/PAF (COBOL, DB2, CICS)','Google Cloud address platform (cloud-native; services indicative). Mainframe kept in parallel','Kick-off'],
+ ['Address change entry','AMU/contact centres via PCDA CICS screens; Salesforce CRM for cases','Salesforce-connected web app: case ingestion + direct entry, RBAC, multi-address updates','Kick-off'],
+ ['Verification & quality','Manual comparisons to assess data quality','Automated checks (format, UDPRN, duplicates, fraud, external sources), confidence score, human review, audit log; automated reconciliation & quality gates','Kick-off'],
+ ['Data load','—','Historical load (~29M) then daily incremental pipelines','Kick-off'],
+ ['Outputs','Batch extracts & FTP/BIG feeds (35+ products)','11 products/feeds rebuilt with legacy file/CSV patterns preserved; parity evidence','Kick-off'],
+ ['Access channels','File exports only','+ REST API lookup (Phase 1); geospatial, MCP/agentic later','Kick-off'],
+ ['Enrichment','None','Classification, coordinates, letterbox, hazards, provenance (Phase 2 direction)','Kick-off'],
+ ['Ownership','2015: Capgemini app support, ATOS infra','TCS controls PCDA code/batch; Datatonic builds; RMG Technology Design Authority approves HLD/LLD','Kick-off'],
+ ['Delivery','—','19-week Scrum Phase 1 to Mar 2027; parallel run; cutover decision by RMG, not committed','Kick-off'],
+ ['Pending','—','Detailed interface-level TO-BE awaits discovery workshops','—']
 ];
 
 /* ---------------- rendering ---------------- */
 const svg=document.getElementById('svg'),NS='http://www.w3.org/2000/svg';let mode='asis',sel=null;
-const col={paf:['#2d5fa8','#dbe8fa'],int:['#2f6f4f','#e6f3ec'],ext:['#b3261e','#fbe9e7'],mid:['#b58a00','#fff6cf']};
+const col={paf:['#2d5fa8','#dbe8fa'],int:['#2f6f4f','#e6f3ec'],ext:['#b3261e','#fbe9e7'],mid:['#b58a00','#fff6cf'],plat:['#2d5fa8','#eaf1fb']};
+const stCol={new:'#1a7f37',chg:'#c77700',tbc:'#7a7a7a',p2:'#7b3fb3'};
+const stLbl={new:'NEW',chg:'CHANGED',tbc:'SCOPE TBC',p2:'FUTURE',kept:'UNCHANGED'};
+const stTxt={new:'New component/flow in the target design.',chg:'Exists today but changes in the target design.',tbc:'In or near scope but not yet confirmed – to settle in discovery.',p2:'Future phase / vision – not a committed Phase 1 deliverable.',kept:'Continues as today (no change stated).'};
 const el=(n,a={},p=svg)=>{const e=document.createElementNS(NS,n);for(const k in a)e.setAttribute(k,a[k]);p.appendChild(e);return e};
-const showExtra=()=>false;
-const nodeState=n=>mode==='asis'?null:(n.tobe&&n.tobe.s)||(n.asis===false?'new':null);
-const exists=(o)=>mode==='asis'?o.asis!==false:true;
+function wrap(t,max){const w=String(t||'').split(' ');const o=[];let c='';w.forEach(x=>{if((c+' '+x).trim().length>max&&c){o.push(c);c=x}else c=(c+' '+x).trim()});if(c)o.push(c);return o}
 function clip(n,tx,ty){const cx=n.x+n.w/2,cy=n.y+n.h/2,dx=tx-cx,dy=ty-cy;const s=Math.min(dx?(n.w/2)/Math.abs(dx):1e9,dy?(n.h/2)/Math.abs(dy):1e9);return[cx+dx*s,cy+dy*s]}
-function draw(){
- svg.innerHTML='';
- const d=el('defs');
- ['f','r'].forEach(t=>{const m=el('marker',{id:'ar'+t,viewBox:'0 0 10 10',refX:9,refY:5,markerWidth:7,markerHeight:7,orient:t==='f'?'auto':'auto-start-reverse'},d);el('path',{d:'M0 0L10 5L0 10z',fill:'#555'},m)});
- const vis=n=>exists(n)&&(!n.extra||showExtra());
- const nm=k=>NODES[k];
+function defs(){const d=el('defs');['f','r'].forEach(t=>{const m=el('marker',{id:'ar'+t,viewBox:'0 0 10 10',refX:9,refY:5,markerWidth:7,markerHeight:7,orient:t==='f'?'auto':'auto-start-reverse'},d);el('path',{d:'M0 0L10 5L0 10z',fill:'#555'},m)})}
+function textBlock(g,n,tMax,sMax,tSize,sSize){
+ const tl=wrap(n.t,tMax),sl=n.sub?wrap(n.sub,sMax):[];const total=tl.length*13+sl.length*11.5;let y=n.y+(n.h-total)/2+10;const cx=n.x+n.w/2;
+ tl.forEach(x=>{el('text',{x:cx,y,'text-anchor':'middle','font-weight':600,'font-size':tSize},g).textContent=x;y+=13});
+ sl.forEach(x=>{el('text',{x:cx,y:y-1,'text-anchor':'middle','class':'sub','font-size':sSize},g).textContent=x;y+=11.5})}
+
+/* ---------- AS-IS ---------- */
+function drawAsis(){
+ svg.setAttribute('viewBox','0 0 1100 710');defs();
  EDGES.forEach(e=>{
-  const A=nm(e.a),B=nm(e.b);if(!vis(e)||!vis(A)||!vis(B))return;
+  const A=NODES[e.a],B=NODES[e.b];
   const [x1,y1]=clip(A,B.x+B.w/2,B.y+B.h/2),[x2,y2]=clip(B,A.x+A.w/2,A.y+A.h/2);
-  const st=mode==='asis'?null:(e.tobe&&e.tobe.s)||(e.asis===false?'new':null);
-  const dim=mode==='diff'&&!st;
-  const g=el('g',{class:dim?'dim':''});
-  const ln=el('line',{x1,y1,x2,y2,class:'edge '+(st?'e-'+st:''),'data-e':e.id,'marker-end':'url(#arf)'},g);
+  const g=el('g');
+  const ln=el('line',{x1,y1,x2,y2,class:'edge','data-e':e.id,'marker-end':'url(#arf)'},g);
   if(e.dir==='b')ln.setAttribute('marker-start','url(#arr)');
   ln.style.cursor='pointer';ln.onclick=()=>pick(e);
-  if(e.ix||e.ifc){const l=el('g',{class:'lbl'},g),mx=x1+(x2-x1)*0.72,my=y1+(y2-y1)*0.72;const tg=e.ix||String(e.ifc).split('-')[0].split('/')[0];const rr=e.ix?9:13;el('circle',{cx:mx,cy:my,r:rr,style:e.ix?'':'fill:#f1f4f8;stroke-dasharray:2 2'},l);el('text',{x:mx,y:my,style:e.ix?'':'font-size:8px'},l).textContent=tg;l.style.cursor='pointer';l.onclick=()=>pick(e)}
+  if(e.ix||e.ifc){const l=el('g',{class:'lbl'},g),mx=x1+(x2-x1)*0.72,my=y1+(y2-y1)*0.72;const tg=e.ix||String(e.ifc).split('-')[0].split('/')[0];
+   el('circle',{cx:mx,cy:my,r:e.ix?9:13,style:e.ix?'':'fill:#f1f4f8;stroke-dasharray:2 2'},l);el('text',{x:mx,y:my,style:e.ix?'':'font-size:8px'},l).textContent=tg;l.style.cursor='pointer';l.onclick=()=>pick(e)}
  });
  Object.entries(NODES).forEach(([k,n])=>{
-  if(!vis(n))return;const st=nodeState(n),[c,f]=col[n.k];const dim=mode==='diff'&&!st;
-  const g=el('g',{class:'node'+(dim?' dim':''),'data-n':k});
-  el('rect',{x:n.x,y:n.y,width:n.w,height:n.h,fill:f,stroke:st?({new:'#1a7f37',chg:'#c77700',rem:'#b3261e'})[st]:c,'stroke-width':st?3.5:1.5,'stroke-dasharray':st==='rem'?'5 3':'' ,rx:7},g);
+  const [c,f]=col[n.k];const g=el('g',{class:'node','data-n':k});
+  el('rect',{x:n.x,y:n.y,width:n.w,height:n.h,fill:f,stroke:c,'stroke-width':1.5,'stroke-dasharray':n.asisOnly?'5 3':'',rx:7},g);
   const cx=n.x+n.w/2;
-  if(n.k==='paf'){el('text',{x:cx,y:n.y+n.h/2-18,'text-anchor':'middle','font-weight':700,'font-size':15},g).textContent=n.t;
-   el('text',{x:cx,y:n.y+n.h/2+2,'text-anchor':'middle','class':'sub'},g).textContent=n.sub;el('text',{x:cx,y:n.y+n.h/2+16,'text-anchor':'middle','class':'sub','font-weight':700},g).textContent=(mode==='asis'?n.hostAs:n.hostTo);
-   [['PAF Application','#8c2f6b',-90],['PAF Database (DB2)','#8c2f6b',10]].forEach(([t,cl,dx])=>{});
+  if(n.k==='paf'){
+   el('text',{x:cx,y:n.y+n.h/2-18,'text-anchor':'middle','font-weight':700,'font-size':15},g).textContent=n.t;
+   el('text',{x:cx,y:n.y+n.h/2+2,'text-anchor':'middle','class':'sub'},g).textContent=n.sub;
+   el('text',{x:cx,y:n.y+n.h/2+16,'text-anchor':'middle','class':'sub','font-weight':700},g).textContent=n.hostAs;
    el('rect',{x:n.x+14,y:n.y+n.h-54,width:100,height:36,fill:'#8c2f6b',rx:4},g);el('text',{x:n.x+64,y:n.y+n.h-36,'text-anchor':'middle',fill:'#fff','font-size':10},g).textContent='PAF Application';
    el('rect',{x:n.x+126,y:n.y+n.h-54,width:100,height:36,fill:'#8c2f6b',rx:4},g);el('text',{x:n.x+176,y:n.y+n.h-36,'text-anchor':'middle',fill:'#fff','font-size':10},g).textContent='PAF DB (DB2)';
   }else{
    el('text',{x:cx,y:n.y+(n.sub?n.h/2-3:n.h/2+4),'text-anchor':'middle','font-weight':600,'font-size':11.5},g).textContent=n.t;
-   if(n.sub&&!n.extra)el('text',{x:cx,y:n.y+n.h/2+11,'text-anchor':'middle','class':'sub'},g).textContent=n.sub}
-  if(st){const b=el('text',{x:n.x+n.w-4,y:n.y-4,'text-anchor':'end','class':'badge',fill:({new:'#1a7f37',chg:'#c77700',rem:'#b3261e'})[st]},g);b.textContent=({new:'NEW',chg:'CHANGED',rem:'REMOVED'})[st]}
-  g.onclick=()=>pick(NODES[k],k);
+   if(n.sub)el('text',{x:cx,y:n.y+n.h/2+11,'text-anchor':'middle','class':'sub'},g).textContent=n.sub}
+  if(n.asisOnly)el('text',{x:n.x+n.w-4,y:n.y-4,'text-anchor':'end','class':'badge',fill:'#b3261e'},g).textContent='DECOMMISSIONED';
+  g.onclick=()=>pick(n);
  });
- 
- if(sel)hl(sel);
 }
+
+/* ---------- TO-BE ---------- */
+function drawTobe(){
+ svg.setAttribute('viewBox','0 0 1100 530');defs();
+ el('rect',{x:250,y:36,width:600,height:326,rx:12,fill:'#f4f8fe',stroke:'#2d5fa8','stroke-width':1.5,'stroke-dasharray':'6 4'});
+ el('text',{x:262,y:56,'font-size':12,'font-weight':700,fill:'#2d5fa8'}).textContent='Google Cloud – Address Intelligence Platform (Datatonic Phase 1 · indicative)';
+ el('text',{x:262,y:350,'font-size':10,fill:'#64707d'}).textContent='Foundations: IAM · infrastructure as code · CI/CD · logging · monitoring · alerting · security & governance';
+ TE.forEach(e=>{
+  const A=TN[e.a],B=TN[e.b];const dim=mode==='diff'&&e.s==='kept';
+  const g=el('g',{class:dim?'dim':''});
+  let pts;
+  if(e.pts){pts=[clip(A,e.pts[0][0],e.pts[0][1]),...e.pts.slice(1,-1)];const last=e.pts[e.pts.length-1];pts=[[e.pts[0][0],e.pts[0][1]],...e.pts.slice(1)]}
+  else{pts=[clip(A,B.x+B.w/2,B.y+B.h/2),clip(B,A.x+A.w/2,A.y+A.h/2)]}
+  const ln=el('polyline',{points:pts.map(p=>p.join(',')).join(' '),fill:'none',class:'edge','data-e':e.id,'marker-end':'url(#arf)'},g);
+  if(e.dir==='b')ln.setAttribute('marker-start','url(#arr)');
+  const c=stCol[e.s];if(c){ln.style.stroke=c;ln.style.strokeWidth=2.4}
+  if(e.s==='tbc'||e.s==='p2')ln.style.strokeDasharray='3 4';else if(e.s==='chg')ln.style.strokeDasharray='6 3';
+  ln.style.cursor='pointer';ln.onclick=()=>pick(e);
+ });
+ Object.entries(TN).forEach(([k,n])=>{
+  const [c,f]=col[n.k];const st=n.s!=='kept'?n.s:null;const dim=mode==='diff'&&n.s==='kept';
+  const g=el('g',{class:'node'+(dim?' dim':''),'data-n':k});
+  el('rect',{x:n.x,y:n.y,width:n.w,height:n.h,fill:f,stroke:st?stCol[st]:c,'stroke-width':st?3:1.5,'stroke-dasharray':(st==='tbc'||st==='p2')?'5 3':'',rx:7},g);
+  const big=n.w>300;textBlock(g,n,big?60:(n.w>=190?27:24),big?70:(n.w>=190?32:27),big?12.5:11,9.5);
+  if(st)el('text',{x:n.x+n.w-4,y:n.y-3,'text-anchor':'end','class':'badge',fill:stCol[st]},g).textContent=stLbl[st];
+  g.onclick=()=>pick(n);
+ });
+}
+function draw(){svg.innerHTML='';mode==='asis'?drawAsis():drawTobe();if(sel)hl(sel);
+ document.getElementById('legend').innerHTML=mode==='asis'
+ ?'<span><i style="border-color:#2f6f4f;background:#e6f3ec"></i>Internal system</span><span><i style="border-color:#b3261e;background:#fbe9e7"></i>External / 3rd party</span><span><i style="border-color:#b58a00;background:#fff6cf"></i>Intermediary (BIG/EDG)</span><span>Solid circle = AOD interaction no. · dashed = AMDD IFC ref</span>'
+ :'<span><i style="border-color:#1a7f37"></i>New</span><span><i style="border-color:#c77700"></i>Changed</span><span><i style="border-color:#7a7a7a;border-style:dashed"></i>Scope TBC</span><span><i style="border-color:#7b3fb3;border-style:dashed"></i>Future / Phase 2</span><span><i style="border-color:#2f6f4f"></i>Unchanged</span>'}
 function list(){
  const ul=document.getElementById('ixlist');ul.innerHTML='';
- EDGES.filter(e=>(e.ix||e.ifc)&&exists(e)).sort((a,b)=>(a.ix?a.ix:100+parseInt(a.ifc))-(b.ix?b.ix:100+parseInt(b.ifc))).forEach(e=>{
-  const st=mode==='asis'?null:(e.tobe&&e.tobe.s)||(e.asis===false?'new':null);
-  const li=document.createElement('li');li.dataset.e=e.id;
-  li.innerHTML=`<b style="${e.ix?'':'border-style:dashed;font-size:8px;'}">${e.ix||String(e.ifc).split('-')[0].split('/')[0]}</b><span>${e.l}${st?`<span class="tag ${st}">${st.toUpperCase()}</span>`:''}</span>`;
-  li.onclick=()=>pick(e);ul.appendChild(li)});
+ if(mode==='asis'){
+  EDGES.filter(e=>e.ix||e.ifc).sort((a,b)=>(a.ix?a.ix:100+parseInt(a.ifc))-(b.ix?b.ix:100+parseInt(b.ifc))).forEach(e=>{
+   const li=document.createElement('li');li.dataset.e=e.id;
+   li.innerHTML=`<b style="${e.ix?'':'border-style:dashed;font-size:8px;'}">${e.ix||String(e.ifc).split('-')[0].split('/')[0]}</b><span>${e.l}</span>`;
+   li.onclick=()=>pick(e);ul.appendChild(li)});
+ }else{
+  TE.filter(e=>mode==='tobe'||e.s!=='kept').forEach((e,i)=>{
+   const li=document.createElement('li');li.dataset.e=e.id;
+   li.innerHTML=`<b>${i+1}</b><span>${e.l}<span class="tag ${e.s}" style="background:${stCol[e.s]||'#2f6f4f'}">${stLbl[e.s]}</span></span>`;
+   li.onclick=()=>pick(e);ul.appendChild(li)});
+ }
 }
 function hl(o){
  document.querySelectorAll('.edge').forEach(x=>x.classList.remove('hl'));
@@ -250,37 +353,46 @@ function hl(o){
  if(o.a){[o.id,...(o.via||[])].forEach(id=>{const l=document.querySelector(`[data-e="${id}"]`);l&&l.classList.add('hl')});
   const li=document.querySelector(`#ixlist li[data-e="${o.id}"]`);li&&li.classList.add('on')}
 }
-function pick(o,k){
+function pick(o){
  sel=o;hl(o);const D=document.getElementById('detail');let h='<h2>Details</h2>';
- if(o.a){h+=`<b>${o.ix?'Interaction '+o.ix:'Link'}</b><dl><dt>Flow</dt><dd>${NODES[o.a].t} ${o.dir==='b'?'⇄':'→'} ${NODES[o.b].t}</dd><dt>Description</dt><dd>${o.l}</dd>`;
-  if(o.ifc)h+=`<dt>AMDD interface ref</dt><dd>IFC ${o.ifc}</dd>`;if(o.note)h+=`<dt>Note</dt><dd>${o.note}</dd>`;if(o.via)h+=`<dt>Routed via</dt><dd>${o.via.map(v=>NODES[EDGES.find(e=>e.id===v).b].t).join(', ')}</dd>`}
- else{h+=`<b>${o.t}</b><dl>`;for(const q in o.d)h+=`<dt>${q}</dt><dd>${o.d[q]}</dd>`}
- if(mode!=='asis'){h+=`<dt>AS-IS → TO-BE</dt><dd>${(o.tobe&&o.tobe.n)||(o.a?DEFAULT_TOBE:'No component-level change identified.')}</dd>`}
+ const NM=mode==='asis'?NODES:TN;
+ if(o.a){
+  h+=`<b>${o.ix?'Interaction '+o.ix:'Link'}</b><dl><dt>Flow</dt><dd>${NM[o.a].t} ${o.dir==='b'?'⇄':'→'} ${NM[o.b].t}</dd><dt>Description</dt><dd>${o.l}</dd>`;
+  if(o.ifc)h+=`<dt>AMDD interface ref</dt><dd>IFC ${o.ifc}</dd>`;
+  if(o.note)h+=`<dt>Note</dt><dd>${o.note}</dd>`;
+  if(o.via)h+=`<dt>Routed via</dt><dd>${o.via.map(v=>NODES[EDGES.find(e=>e.id===v).b].t).join(', ')}</dd>`;
+ }else{h+=`<b>${o.t}</b><dl>`;for(const q in o.d)h+=`<dt>${q}</dt><dd>${o.d[q]}</dd>`}
+ if(mode!=='asis'){h+=`<dt>Status</dt><dd><b style="color:${stCol[o.s]||'#2f6f4f'}">${stLbl[o.s]}</b> – ${stTxt[o.s]}</dd><dt>Source</dt><dd>${SRC} (AI-generated notes + handwritten notes; indicative)</dd>`}
  D.innerHTML=h+'</dl>';
 }
 function note(){document.getElementById('note').innerHTML=mode==='asis'
- ?'<b>AS-IS</b> from AOD §1.6/diagrams and AMDD §2.4.4. Solid circles = AOD interaction no.; dashed = AMDD IFC ref. Click anything for detail.'
- :'<b>TO-BE</b> – CSC→ATOS migration plus Lockheed re-route:<ul style="margin:6px 0 0 16px;padding:0">'+TOBE_SUMMARY.map(x=>'<li>'+x+'</li>').join('')+'</ul>'}
+ ?'<b>AS-IS</b> built from the AOD (§1.6, diagrams), AMDD §2.4.4 and the BIG design. Solid circles = AOD interaction no.; dashed = AMDD IFC ref. Source docs are 2010-2016 vintage – ownership/interfaces may have moved on. Click anything for detail.'
+ :'<b>TO-BE</b> – from the <b>24 Nov 2026 PAF modernisation kick-off</b> (Datatonic, Royal Mail). Phase 1 = migrate/modernise onto Google Cloud and run <b>in parallel</b> with the mainframe; 19 weeks to Mar 2027; cutover not committed. Architecture and services are <b>indicative</b> until discovery & design finish. Earlier documents contain no TO-BE.'}
 document.querySelectorAll('#mode button').forEach(b=>b.onclick=()=>{
- document.querySelectorAll('#mode button').forEach(x=>x.classList.remove('on'));b.classList.add('on');mode=b.dataset.m;draw();list();note()});
-
-document.getElementById('chg').innerHTML='<tr><th>Area</th><th>AS-IS</th><th>TO-BE</th><th>Ref</th></tr>'+CHANGES.map(r=>'<tr>'+r.map(c=>'<td>'+c+'</td>').join('')+'</tr>').join('');
+ document.querySelectorAll('#mode button').forEach(x=>x.classList.remove('on'));b.classList.add('on');mode=b.dataset.m;sel=null;draw();list();note();
+ document.getElementById('detail').innerHTML='<h2>Details</h2><p style="color:var(--mut);margin:0">Click a component or interaction.</p>'});
+document.getElementById('chg').innerHTML='<tr><th>Area</th><th>AS-IS</th><th>TO-BE</th><th>Source</th></tr>'+CHANGES.map(r=>'<tr>'+r.map(c=>'<td>'+c+'</td>').join('')+'</tr>').join('');
 document.getElementById('tech').innerHTML=TECH.map(r=>`<tr><th>${r[0]}</th><td>${r[1]}</td></tr>`).join('');
+document.getElementById('plan').innerHTML='<table>'+PHASE1.map(r=>`<tr><th>${r[0]}</th><td>${r[1]}</td></tr>`).join('')+'</table><h2 style="margin-top:12px">Open questions</h2><ul style="margin:0;padding-left:18px">'+OPEN.map(x=>'<li>'+x+'</li>').join('')+'</ul>';
+
 const DOCS=[
- {d:'Dec 2010',t:"PAF Programmers' Guide (PAF Digest) – Edition 7",ty:'Product reference',f:'PAF_Digest_Reference.pdf',dn:'Text states published 2010; PDF created Dec 2010 (cover shows v4.0).',u:'PAF product set (Mainfile, Keychain, Changes, Compressed Standard, PIF, UDPRN, NYB, Multiple Residence, Postzon) and file/table structures – context for the outbound product interfaces.'},
+ {d:'Dec 2010',t:"PAF Programmers' Guide (PAF Digest) – Edition 7 (early version)",ty:'Product reference',f:'PAF_Digest_Reference.pdf',dn:'Text states published 2010; PDF created Dec 2010.',u:'Earlier PAF product set and file/table structures (superseded by the 2013 version).'},
  {d:'2 Apr 2012',t:'PAF Table List – EBS RMG Mainframe Team (v1.0)',ty:'Data model',f:'PAF_Tables.pdf',dn:'Dated from its version history (v1.0, 2 Apr 2012, CSC).',u:'DB2 table/index inventory behind the PAF component (TPF*/VPF* naming).'},
+ {d:'2013',t:"PAF Programmers' Guide – Edition 7, version 6",ty:'Product reference',f:'PAF_Programmers_Guide.pdf',dn:'States "correct at the time of publication in 2013".',u:'Current product set: Mainfile, Alias, Keychain, Changes, Compressed Standard, Ranges, PIF, UDPRN, BFPO, NYB, Just Built, Multiple Residence, Postzon – all also in CSV. Used for the AS-IS products list.'},
  {d:'6 Nov 2014',t:'MG001 Mainframe AMDD – Firewall Rules workbook',ty:'Workbook',f:'MG001_Mainframe_AMDD_-_Firewall_Rules.xlsx',dn:'Date = file creation (Atos Origin). The supplied content is a mainframe administration-responsibilities task list, not firewall rules – possibly the wrong file.',u:'Not used for interfaces; firewall/protocol detail taken from AMDD §2.8 instead.'},
- {d:'5 Mar 2015',t:'Monitoring Events workbook (PAF, RMGTT, CREDO, D2D, Halcon)',ty:'Operations',f:'MonitoringEvents_PAF.xlsx',dn:'Date = file creation (author shaalam).',u:'PAF key business functions and the OPC schedules/jobs monitored (online, monthly extract, Pegasus, daily products, RMGTT Thursday file, FTP).'},
- {d:'5 Jun 2015',t:'Mainframe Migration Design (MDD) PPM-20742-MDD0012 v0.6 Final',ty:'Migration design',f:'PPM-20742-MDD0012_Mainframe_Final_v0.6.pdf',dn:'Dated 05/06/2015 in its header.',u:'ATOS cut-over: POH7/POH8 LPARs, BBP data centre, IP switching, backup/restore from CSC, DR.'},
- {d:'30 Jul 2015',t:'Endevor Package Checklist v0.1',ty:'Release control',f:'Endeavour_SourceControl_for_PAF_.pdf',dn:'Dated 30 July 2015.',u:'Package naming, STANDARD/EMERGENCY types, CAST report RC=0 gate (release route).'},
- {d:'31 Jul 2015',t:'Demarcation of Responsibilities – Mainframe & DB2',ty:'Responsibilities',f:'DemarcationOfResponsibilities_Mainframes.xls; DemarcationOfResponsbilitiesDB2.xls',dn:'AOD cites "Draft 31 July 2015"; AMDD cites base versions of 29-Oct-2014 (Mainframe) and 7-Nov-2014 (DB2). The supplied files carry no date.',u:'Task ownership between application management and ATOS infrastructure – CICS, batch scheduling, storage, Endevor, RACF, DB2 DBA.'},
- {d:'17 Sep 2015',t:'MG001 Mainframe Application Migration Design (AMDD) v0.1.3',ty:'Migration design',f:'MG001_Mainframe_AMDD_FINAL_v0.1.3.pdf',dn:'Dated 17 Sept 2015 (first draft 16 Dec 2014).',u:'Main source: AS-IS interface list with IFC refs, protocols/ports, TO-BE migration approach, firewall/IP/shared-service changes.'},
- {d:'2016',t:'Mainframe Development and Release Process (PAF Endevor release management)',ty:'Process',f:'Mainframe_Development_And_Release_Process.pdf',dn:'© Capgemini 2016; AOD rev 2.2 (15-Aug-2016) updated its route-to-live section.',u:'T→Q→A→I→P route, release slots, roles, entry/exit criteria.'},
- {d:'15 Aug 2016',t:'Application Overview Document 067-PAF v2.0 (rev 2.2)',ty:'Baseline AOD',f:'RMG_Application_Overview_Document_067-PAF_PAF_v19.pdf',dn:'First draft 20 Nov 2014; v2.0 post-migration cut-over 21 Sep 2015; latest change 15 Aug 2016.',u:'Baseline AS-IS: business, users, interactions 1-12, hosting, support hours, risks; transition changes (ATOS, Capgemini).'},
- {d:'Undated',und:1,t:'PAF Online Screen Navigation',ty:'User guide',f:'PAF_Online_Screen_Navigation.pdf',dn:'No date in content; referenced by AOD §6.3. Screens captured in production (maintenance options disabled).',u:"PCDA main menu / screen tree for the AMU users' CICS interaction."},
- {d:'Undated (likely later)',und:1,t:'PAF Daily Files to Lockheed Martin – BIG LLD (I200067-624-E000609)',ty:'Interface design',f:'PAF_Daily_Files_to_Lockheed_Confluence.pdf',dn:'Confluence export, no date. BIG/FMS, DataPower and a GDPR field suggest it post-dates the 2015 migration docs (my inference).',u:'TO-BE change: Lockheed feed re-routed via BIG FMS (FTP in, FTPS out), status Live.'},
- {d:'Undated (likely later)',und:1,t:'MEARS Abbreviations',ty:'Glossary',f:'MEARS_Abbreviations_Confluence.pdf',dn:'Confluence export, no date. Mentions GCP/FDP, which suggests a later period (my inference).',u:'Glossary for the Lockheed MEARS / Address Interpretation context (LMCC, FLA, DRF, ADF).'}
+ {d:'5 Mar 2015',t:'Monitoring Events workbook (PAF, RMGTT, CREDO, D2D, Halcon)',ty:'Operations',f:'MonitoringEvents_PAF.xlsx',dn:'Date = file creation (author shaalam).',u:'AS-IS: PAF key business functions and the OPC schedules/jobs monitored.'},
+ {d:'5 Jun 2015',t:'Mainframe Migration Design (MDD) PPM-20742-MDD0012 v0.6 Final',ty:'Historical migration',f:'PPM-20742-MDD0012_Mainframe_Final_v0.6.pdf',dn:'Dated 05/06/2015 in its header.',u:'AS-IS history: the 2015 CSC→ATOS move (POH7/POH8, BBP data centre, DR). Not a TO-BE for the modernisation.'},
+ {d:'30 Jul 2015',t:'Endevor Package Checklist v0.1',ty:'Release control',f:'Endeavour_SourceControl_for_PAF_.pdf',dn:'Dated 30 July 2015.',u:'AS-IS release route: package naming, STANDARD/EMERGENCY, CAST report RC=0 gate.'},
+ {d:'31 Jul 2015',t:'Demarcation of Responsibilities – Mainframe & DB2',ty:'Responsibilities',f:'DemarcationOfResponsibilities_Mainframes.xls; DemarcationOfResponsbilitiesDB2.xls',dn:'AOD cites "Draft 31 July 2015"; AMDD cites base versions of 29-Oct-2014 (Mainframe) and 7-Nov-2014 (DB2). The supplied files carry no date.',u:'AS-IS (2015) task ownership between application management and ATOS infrastructure.'},
+ {d:'17 Sep 2015',t:'MG001 Mainframe Application Migration Design (AMDD) v0.1.3',ty:'AS-IS + historical migration',f:'MG001_Mainframe_AMDD_FINAL_v0.1.3.pdf',dn:'Dated 17 Sept 2015 (first draft 16 Dec 2014).',u:'Main AS-IS source: interface list with IFC refs and protocols/ports. Its "TO-BE" is the 2015 CSC→ATOS migration (historical).'},
+ {d:'2016',t:'Mainframe Development and Release Process (PAF Endevor release management)',ty:'Process',f:'Mainframe_Development_And_Release_Process.pdf',dn:'© Capgemini 2016; AOD rev 2.2 (15-Aug-2016) updated its route-to-live section.',u:'AS-IS: T→Q→A→I→P route, release slots, roles, entry/exit criteria.'},
+ {d:'15 Aug 2016',t:'Application Overview Document 067-PAF v2.0 (rev 2.2)',ty:'Baseline AOD',f:'RMG_Application_Overview_Document_067-PAF_PAF_v19.pdf',dn:'First draft 20 Nov 2014; v2.0 post-migration cutover 21 Sep 2015; latest change 15 Aug 2016.',u:'Baseline AS-IS: business, users, interactions 1-12, hosting, support hours, risks.'},
+ {d:'Undated',und:1,t:'PAF Online Screen Navigation',ty:'User guide',f:'PAF_Online_Screen_Navigation.pdf',dn:'No date in content; referenced by AOD §6.3. Screens captured in production (maintenance options disabled).',u:"AS-IS: PCDA main menu / screen tree for the AMU users' CICS interaction."},
+ {d:'Undated (likely later)',und:1,t:'PAF Daily Files to Lockheed Martin – BIG LLD (I200067-624-E000609)',ty:'Interface design',f:'PAF_Daily_Files_to_Lockheed_Confluence.pdf',dn:'Confluence export, no date. BIG/FMS, DataPower and a GDPR field suggest it post-dates the 2015 docs (my inference).',u:'AS-IS (Live): Lockheed feed via BIG FMS – FTP in, FTPS out.'},
+ {d:'Undated (likely later)',und:1,t:'MEARS Abbreviations',ty:'Glossary',f:'MEARS_Abbreviations_Confluence.pdf',dn:'Confluence export, no date. Mentions GCP/FDP (my inference: later period).',u:'Glossary for the Lockheed MEARS / Address Interpretation context.'},
+ {d:'24 Nov 2026',t:'PAF Modernisation – Kick-off session (Datatonic / Royal Mail)',ty:'TO-BE source',f:'24Nov_-_KickOff_Session.pdf',dn:'Teams AI-generated meeting notes ("check for accuracy") plus handwritten notes. Only document containing TO-BE.',u:'Source of the whole TO-BE: GCP platform, Salesforce workflow, API, parity run, Phase 1 plan, regulatory constraints, open questions.'}
 ];
 document.getElementById('tl').innerHTML=DOCS.map(x=>`<li class="${x.und?'und':''}"><div class="dt">${x.d}</div><div><span class="ti">${x.t}</span><span class="ty">${x.ty}</span></div><div class="fn">${x.f}</div><div class="us">${x.u}</div><div class="dn">${x.dn}</div></li>`).join('');
 draw();list();note();
+
 </script></body></html>
