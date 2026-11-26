@@ -42,12 +42,12 @@ details{margin-top:12px}summary{cursor:pointer;font-weight:600}
 </style></head><body>
 <header>
  <h1>PAF (200067) – Postal Address File: interaction map
-  <small>Source: RMG Application Overview Document 067-PAF v2.0 (Capgemini, Aug-2016) · more source docs to be merged</small></h1>
+  <small>Sources: PAF AOD v2.0, MG001 Mainframe AMDD v0.1.3, MDD v0.6, Lockheed BIG LLD, monitoring & demarcation sheets</small></h1>
  <div class="seg" id="mode"><button data-m="asis" class="on">AS-IS</button><button data-m="tobe">TO-BE</button><button data-m="diff">Changes only</button></div>
- <label class="t"><input type="checkbox" id="ext"> show extra interfaces (AOD p.16)</label>
+ 
 </header>
 <main>
- <div class="card"><svg id="svg" viewBox="0 0 1100 770"></svg>
+ <div class="card"><svg id="svg" viewBox="0 0 1100 710"></svg>
   <div class="legend">
    <span><i style="border-color:#2f6f4f;background:#e6f3ec"></i>Internal system</span>
    <span><i style="border-color:#b3261e;background:#fbe9e7"></i>External / 3rd party</span>
@@ -56,7 +56,7 @@ details{margin-top:12px}summary{cursor:pointer;font-weight:600}
   </div></div>
  <aside style="display:flex;flex-direction:column;gap:14px">
   <div class="card warn" id="note"></div>
-  <div class="card"><h2>Interactions <span style="text-transform:none;font-weight:400">(click to trace)</span></h2><ul id="ixlist"></ul></div>
+  <div class="card"><h2>Interactions &amp; interfaces <span style="text-transform:none;font-weight:400">(click to trace)</span></h2><ul id="ixlist"></ul></div>
   <div class="card" id="detail"><h2>Details</h2><p style="color:var(--mut);margin:0">Click a component or interaction.</p></div>
  </aside>
 </main>
@@ -68,85 +68,117 @@ details{margin-top:12px}summary{cursor:pointer;font-weight:600}
 <script>
 /* =====================================================================
    DATA MODEL – edit/extend here when more documents arrive.
-   node.tobe / edge.tobe = {s:'new'|'chg'|'rem', n:'note'} ; omit => unchanged.
-   node.asis===false => does not exist AS-IS (new in TO-BE).
+   node/edge .tobe = {s:'new'|'chg'|'rem', n:'note'} ; omit => unchanged.
+   .asis===false => does not exist AS-IS (new in TO-BE).
+   edge: ix = AOD interaction no.; ifc = AMDD interface ref (e.g. 933-000)
    ===================================================================== */
 const NODES={
- paf:{x:430,y:300,w:240,h:170,t:'PAF (200067)',sub:'Postal Address File · z/OS · DB2 · CICS · COBOL',k:'paf',
+ paf:{x:430,y:300,w:240,h:170,t:'PAF (200067)',sub:'z/OS · DB2 · CICS · COBOL',hostAs:'Hosted: CSC data centre (POH7/POH8)',hostTo:'Hosted: ATOS BBP data centre (POH7/POH8)',k:'paf',
   d:{Role:'UK address database (~29M addresses, ~1.8M postcodes, ~1.3M changes/yr, 35+ products). L2 application, high criticality.',
-     Platform:'IBM z/OS mainframe (POH7 prod / POH8 non-prod), DB2 10.1, CICS 4.1, COBOL 3.4.1',Users:'AMU (Portsmouth) & contact centres – ~60 maintenance, ~40-50 enquiry'},
-  tobe:{s:'chg',n:'Hosting/support transition: mainframe hosted by ATOS (previously CSC); application support by Capgemini. Application, schedules (OPC) and interface IPs/servers remain the same "till further update" (AOD [IP redacted]-[IP redacted]).'}},
- user:{x:455,y:60,w:190,h:48,t:'AMU / Contact Centre users',sub:'PCDA CICS screens · Portsmouth',k:'int',d:{Access:'CICS (PCDA) transactions via RMG desktop; screens must be available by 06:00 Mon-Sat'}},
- big:{x:225,y:372,w:110,h:44,t:'BIG',sub:'File transfer hub',k:'mid',d:{Role:'Intermediary for outbound FTP/SFTP to 3rd parties (AFD, Optecon, Dataforce, CACI, Lockheed Martin)',Issue:'Monthly extract transfers via BIG need manual monitoring'}},
+     Platform:'IBM z/OS mainframe: POH7 (prod), POH8 (non-prod); DB2 10.1, CICS 4.1, COBOL 3.4.1',Users:'AMU (Portsmouth) & contact centres – ~60 maintenance, ~40-50 enquiry',
+     Monitoring:'KBF: online schedules PFPMD@SA/SB (start) & @MA/MB (check); monthly extract (3rd weekend; 2nd in Dec). Non-KBF: Pegasus PFPMD080/085/090/095/100, daily products PFPMD200, RMGTT PFPMW075/PFPEA160, FTP CPFPXM05-60. 09:00 OPC health check.',
+     Release:'Endevor packages (naming aaP2sggggggggggn; slots B pre-batch, D/E post-batch, H 11:00, Z emergency); T→Q→A→I→P'},
+  tobe:{s:'chg',n:'Migrated from CSC to ATOS BBP data centre. Application, OPC schedules, RACF credentials and functionality unchanged ("no functional changes"). CSC support users removed, NSP users added; support by Capgemini; ATOS CA-Automation Point replaces CSC monitoring tooling (monitoring events unchanged). DR at BBP (hot standby, RTO 48h).'}},
+ user:{x:455,y:60,w:190,h:48,t:'AMU / Contact Centre users',sub:'PCDA CICS screens · Portsmouth',k:'int',d:{Access:'CICS (PCDA) transactions via RMG desktop; must be available by 06:00 Mon-Sat; navigation per PAF Online Screen Navigation doc'}},
+ big:{x:225,y:372,w:110,h:44,t:'BIG',sub:'Integration Gateway',k:'mid',d:{Role:'Strategic integration gateway (DataPower, ESB, FMS file mediation). Intermediary for outbound FTP/SFTP to 3rd parties (AFD, Optecon, Dataforce, CACI)',Issue:'Monthly extract transfers via BIG need manual monitoring'}},
  edg:{x:225,y:190,w:110,h:44,t:'EDG',sub:'Intermediary',k:'mid',d:{Role:'Intermediary shown feeding RMG Siebel (AOD p.15)'}},
- siebel:{x:30,y:190,w:130,h:44,t:'Siebel (200094)',sub:'RMG Siebel',k:'int',d:{Status:'Interaction 8 – decommissioned per AOD 1.6'},tobe:{s:'rem',n:'Decommissioned (Interaction 8). Still drawn on the p.15 context diagram – diagram is stale.'}},
- afd:{x:30,y:290,w:130,h:44,t:'AFD',sub:'3rd party',k:'ext',d:{Role:'Produces PAF daily & monthly products for end customers'}},
- df:{x:30,y:350,w:130,h:44,t:'Dataforce',sub:'3rd party',k:'ext',d:{Role:'Receives KEYCHAIN, CHANGES1, CHANGES2 products'}},
- caci:{x:30,y:410,w:130,h:44,t:'CACI',sub:'3rd party (p.15 only)',k:'ext',d:{Role:'Shown on context diagram via BIG; no numbered interaction in AOD text'}},
- opt:{x:30,y:470,w:130,h:44,t:'Optecon',sub:'3rd party',k:'ext',d:{Role:'Prints stationery from Delivery Office file'}},
- lm:{x:225,y:480,w:110,h:44,t:'Lockheed Martin',sub:'LMARTIN',k:'int',d:{Role:'Receives daily changes file'}},
- atf:{x:900,y:80,w:150,h:42,t:'ATF / Address Service',sub:'SQL Server (Postcodes On-line)',k:'int',d:{Role:'DB sync; VPF600 changes applied ~02:00 by 2 VB programs via Shadow Direct, replicated to regional servers'}},
- peg:{x:900,y:140,w:150,h:42,t:'Pegasus',sub:'Walk / DO updates',k:'int',d:{Role:'DB sync; daily walk & delivery-office updates. Job CPFPD080 validates walk data (VPF212 vs VPF102)'}},
- walk:{x:900,y:200,w:150,h:42,t:'WalkDB',sub:'(p.15)',k:'int',d:{Role:'Shown on context diagram; no numbered interaction'}},
- amn:{x:900,y:260,w:150,h:42,t:'AMN',sub:'inbound to PAF (p.15)',k:'int',d:{Role:'Inbound feed to PAF per diagram; no numbered interaction'}},
- rmgtt:{x:900,y:320,w:150,h:42,t:'RMGTT (200095)',sub:'7-track item tracking',k:'int',d:{Role:'Receives address update file. CPFPTT01 needs Wintel PSCAN space'}},
- credo:{x:900,y:380,w:150,h:42,t:'CREDO (200066)',sub:'Redirections',k:'int',d:{Role:'Receives redirection address updates and verifies address info'}},
- gb:{x:900,y:440,w:150,h:42,t:'GB Group',sub:'external (p.15)',k:'ext',d:{Role:'On context diagram only; server entry GBGROUP1 in CPFP.SERVER.DETAILS'}},
- rsa:{x:900,y:500,w:150,h:42,t:'RSA',sub:'external (p.15)',k:'ext',d:{Role:'On context diagram only; server entry RSA1'}},
- homer:{x:225,y:640,w:150,h:48,t:'Homer ([IP redacted])',sub:'→ Internal & External Customers',k:'int',d:{Role:'Receives monthly products and DMA/BA extracts'}},
+ siebel:{x:30,y:190,w:130,h:44,t:'Siebel (094-RMG)',sub:'RMG Siebel',k:'int',d:{Status:'Interaction 8 – decommissioned per AOD 1.6; still in AMDD firewall list (MQ) and monitoring text'},tobe:{s:'rem',n:'Decommissioned (Interaction 8). Still drawn on AOD p.15 and in the PAF monitoring event text – stale.'}},
+ afd:{x:30,y:290,w:130,h:44,t:'AFD (E000215)',sub:'3rd party',k:'ext',d:{Role:'Produces PAF daily & monthly products for end customers'}},
+ df:{x:30,y:350,w:130,h:44,t:'Dataforce (E000017)',sub:'3rd party',k:'ext',d:{Role:'Receives KEYCHAIN, CHANGES1, CHANGES2 products and daily PAF update (job CPFPDF01)'}},
+ caci:{x:30,y:410,w:130,h:44,t:'CACI (E000263)',sub:'3rd party',k:'ext',d:{Role:'Receives Walksort products feed (IFC 182-000)'}},
+ opt:{x:30,y:470,w:130,h:44,t:'Optecon (E000006)',sub:'3rd party',k:'ext',d:{Role:'Prints stationery from Delivery Office file'}},
+ lm:{x:225,y:480,w:110,h:44,t:'Lockheed Martin',sub:'E000609 · MEARS',k:'ext',d:{Role:'Receives daily PAF changes (LM######.zip) and monthly DO product (AI_Postcode_to_DO_Product.zip) into Address Interpretation (/to_ai, /to_ai/DO). MEARS = Mail piece Events and Attributes Recognition System; LMCC = Lockheed Martin Control Centre.',Monitoring:'Job CPFPLM01 (zip/FTP) in schedule PFPMD200'}},
+ atf:{x:900,y:80,w:150,h:42,t:'ATF / Address Service',sub:'065-ADD · SQL Server',k:'int',d:{Role:'DB sync (IFC 1466-000 ODBC/JDBC, daily); VPF600 changes applied ~02:00 by 2 VB programs via Shadow Direct then replicated to regional servers. Schedule PFPMD100 (ATF incremental).'}},
+ peg:{x:900,y:140,w:150,h:42,t:'Pegasus (031-PLA)',sub:'Walk / DO updates',k:'int',d:{Role:'DB sync; daily walk & delivery-office updates. Schedules PFPMD080/085/090/095. CPFPD080 validates walk data (VPF212 vs VPF102).'}},
+ walk:{x:900,y:200,w:150,h:42,t:'WalkDB (068-WAL)',sub:'Walks Online',k:'int',d:{Role:'Daily PAF update via ODBC/JDBC (IFC 936-000)'}},
+ amn:{x:900,y:260,w:150,h:42,t:'AMN',sub:'inbound (AOD p.15)',k:'int',d:{Role:'Inbound feed to PAF per AOD diagram; no interface ref found'}},
+ rmgtt:{x:900,y:320,w:150,h:42,t:'RMGTT (095-RMG)',sub:'7-track item tracking',k:'int',d:{Role:'Daily PAF update (IFC 935-000, FTP). Address update file every Thursday (PFPMW075/PFPEA160, job CPFPTT01). CPFPTT01 needs Wintel PSCAN space.'}},
+ credo:{x:900,y:380,w:150,h:42,t:'CREDO (066-RED)',sub:'Redirections',k:'int',d:{Role:'Direct ODBC/JDBC DB link to PAF (IFC 927-000, PAFLINK table) – tight coupling, same mainframe. Verifies addresses; CREDO onward feeds to Optecon, Dataforce, eBusiness.'}},
+ gb:{x:900,y:440,w:150,h:42,t:'GB Group',sub:'TBC-GBG · external',k:'ext',d:{Role:'Daily PAF update, FTP flat file (IFC 933-000)'}},
+ rsa:{x:900,y:500,w:150,h:42,t:'RSA',sub:'TBC-RSA · external',k:'ext',d:{Role:'Daily PAF update, FTP flat file (IFC 934-000)'}},
+ baloo:{x:900,y:560,w:150,h:42,t:'Baloo',sub:'TBC-BAL',k:'int',d:{Role:'Daily (IFC 938-000) and monthly (IFC 1467-000) PAF updates by FTP'}},
+ psp:{x:900,y:620,w:150,h:42,t:'PSP (375-PSP)',sub:'external',k:'ext',d:{Role:'Daily PAF feed, HTTPS message, synchronous (IFC 1267-000)'}},
+ cle:{x:10,y:60,w:150,h:44,t:'CLEO (083-CLE)',sub:'incl. Redeliveries',k:'int',d:{Role:'Interface 922-000 – mechanism/medium not documented'}},
+ poi:{x:10,y:120,w:150,h:44,t:'POISE PMS (128-POI)',sub:'',k:'int',d:{Role:'Interface 926-000 – FTP per firewall list; not otherwise documented'}},
+ dob:{x:170,y:60,w:176,h:44,t:'DO Base Info (114-DEL)',sub:'',k:'int',d:{Role:'Address data, interface 639-000 – mechanism not documented'}},
+ dod:{x:170,y:120,w:176,h:44,t:'DO Daily Report (041-DEL)',sub:'',k:'int',d:{Role:'Interface 923-000 – mechanism not documented'}},
+ add:{x:672,y:60,w:196,h:44,t:'Address Mgmt Notif. (069-ADD)',sub:'',k:'int',d:{Role:'Outbound 920-000 ODBC/JDBC (direct, in response to another interface); inbound 710-000 SQL linked-server trigger every 30 min 04:00-18:00'}},
+ adds:{x:672,y:120,w:196,h:44,t:'Address Services (065-ADD)',sub:'',k:'int',d:{Role:'Daily feed of PAF data, interface 929-000 – mechanism not documented'}},
+ amc:{x:672,y:180,w:196,h:44,t:'AMC Online (062-AMC)',sub:'',k:'int',d:{Role:'Inbound interface 721-000 – not documented. AMC Online used by advisors for historical delivery point / road / boundary data'}},
+ pos:{x:672,y:240,w:196,h:44,t:'Postcodes Online (064-POS)',sub:'Intranet look-up',k:'int',d:{Role:'Look-up tool fed overnight from PAF (AOD 4.3); HTTP/XML/ODBC per firewall list'}},
+ homer:{x:205,y:640,w:180,h:48,t:'Homer ([IP redacted])',sub:'→ Internal & External Customers',k:'int',d:{Role:'Receives monthly products and DMA/BA extracts'}},
  eb:{x:430,y:640,w:140,h:48,t:'E-Business (200341)',sub:'',k:'int',d:{Role:'Receives daily & monthly updates'}},
  cs:{x:610,y:640,w:130,h:48,t:'Client Server',sub:'',k:'int',d:{Role:'Receives daily/monthly address updates'}},
- web:{x:780,y:640,w:130,h:48,t:'Internet Web',sub:'→ Internal & External Customers',k:'int',d:{Role:'Downstream of Client Server. Also Postcodes intranet look-up fed overnight'}}
+ web:{x:760,y:640,w:120,h:48,t:'Internet Web',sub:'→ Customers',k:'int',d:{Role:'Downstream of Client Server'}}
 };
-/* extra interfaces from AOD p.16 (low-resolution; direction not confirmed) */
-const XN=['848-ACC','683-CLE','066-RED','068-WAL','128-POI','654-POS','114-DEL','841-DEL','TBC-TRA','062-AIMC','069-ADD','282-APL','066-ADD','375-PSP'];
-XN.forEach((n,i)=>{NODES['x'+i]={x:20+i*77,y:722,w:72,h:34,t:n,sub:'',k:/TRA|AIMC|069|282|375/.test(n)?'ext':'int',extra:true,d:{Source:'AOD p.16 context diagram. Interface purpose/direction not described in text – confirm via Mainframe Workshops Interface list.'}}});
-/* edges: id, from, to, ix (interaction no. or null), dir ('f' from→to, 'b' both), label */
 const EDGES=[
- {id:'pb',a:'paf',b:'big',ix:null,dir:'f',l:'FTP/SFTP outbound'},
- {id:'ba',a:'big',b:'afd',ix:1,dir:'f',l:'Monthly & Walksort products → AFD',via:['pb']},
+ {id:'pb',a:'paf',b:'big',dir:'f',l:'FTP/SFTP outbound to BIG'},
+ {id:'ba',a:'big',b:'afd',ix:1,ifc:'1465-000',dir:'f',l:'Monthly & Walksort products → AFD (AMDD: daily FTP feed)',via:['pb']},
  {id:'bo',a:'big',b:'opt',ix:4,dir:'f',l:'Delivery Office file → Optecon',via:['pb']},
- {id:'bd',a:'big',b:'df',ix:11,dir:'f',l:'KEYCHAIN, CHANGES1, CHANGES2 → Dataforce',via:['pb']},
- {id:'bl',a:'big',b:'lm',ix:12,dir:'f',l:'Daily changes file → LMARTIN',via:['pb']},
- {id:'bc',a:'big',b:'caci',ix:null,dir:'f',l:'(p.15) via BIG',via:['pb']},
- {id:'pe',a:'paf',b:'edg',ix:null,dir:'f',l:'(p.15)'},
+ {id:'bd',a:'big',b:'df',ix:11,ifc:'937-000',dir:'f',l:'KEYCHAIN, CHANGES1, CHANGES2 + daily update → Dataforce',via:['pb']},
+ {id:'bl',a:'big',b:'lm',ix:12,ifc:'312/313-000',dir:'f',l:'Daily & monthly files → Lockheed Martin',via:['pb'],
+  note:'AS-IS: AMDD lists direct FTP flat-file feeds (312-000 daily, 313-000 monthly); AOD p.10 draws it via BIG.',
+  tobe:{s:'chg',n:'Now a BIG FMS interface I200067-MULTIPLE-E000609 (WPP2656, status Live). PAF FTP-pushes to FMS incoming dirs (624 daily LM######.zip; 625 monthly AI_Postcode_to_DO_Product.zip); FMS moves, archives, then FTPS-pushes to Lockheed (/to_ai, /to_ai/DO). Pass-through, no transformation, DataPower + ESB.'}},
+ {id:'bc',a:'big',b:'caci',ifc:'182-000',dir:'f',l:'Walksort products feed → CACI',via:['pb']},
+ {id:'pe',a:'paf',b:'edg',dir:'f',l:'(AOD p.15)'},
  {id:'es',a:'edg',b:'siebel',ix:8,dir:'f',l:'SEIBEL – decommissioned',tobe:{s:'rem',n:'Interface decommissioned.'}},
- {id:'atf',a:'paf',b:'atf',ix:2,dir:'b',l:'Database sync with ATF'},
+ {id:'atf',a:'paf',b:'atf',ix:2,ifc:'1466-000',dir:'b',l:'Database sync with ATF (ODBC/JDBC, daily)'},
  {id:'peg',a:'paf',b:'peg',ix:3,dir:'b',l:'Database sync; daily walk & DO updates'},
- {id:'wdb',a:'paf',b:'walk',ix:null,dir:'f',l:'(p.15)'},
- {id:'amn',a:'amn',b:'paf',ix:null,dir:'f',l:'(p.15) inbound'},
- {id:'rt',a:'paf',b:'rmgtt',ix:10,dir:'f',l:'Address update file → RMGTT'},
- {id:'cr',a:'paf',b:'credo',ix:9,dir:'b',l:'Redirection address updates → CREDO; CREDO verifies'},
- {id:'gb',a:'paf',b:'gb',ix:null,dir:'f',l:'(p.15)'},
- {id:'rsa',a:'paf',b:'rsa',ix:null,dir:'f',l:'(p.15)'},
+ {id:'wdb',a:'paf',b:'walk',ifc:'936-000',dir:'f',l:'Daily update → WalkDB (ODBC/JDBC)'},
+ {id:'amn',a:'amn',b:'paf',dir:'f',l:'(AOD p.15) inbound'},
+ {id:'rt',a:'paf',b:'rmgtt',ix:10,ifc:'935-000',dir:'f',l:'Address update file → RMGTT (FTP; weekly Thursday)'},
+ {id:'cr',a:'paf',b:'credo',ix:9,ifc:'927-000',dir:'b',l:'Redirection address updates ⇄ CREDO (direct DB link)'},
+ {id:'gb',a:'paf',b:'gb',ifc:'933-000',dir:'f',l:'Daily update → GB Group (FTP)'},
+ {id:'rsa',a:'paf',b:'rsa',ifc:'934-000',dir:'f',l:'Daily update → RSA (FTP)'},
+ {id:'bal',a:'paf',b:'baloo',ifc:'938/1467',dir:'f',l:'Daily & monthly updates → Baloo (FTP)'},
+ {id:'psp',a:'paf',b:'psp',ifc:'1267-000',dir:'f',l:'Daily feed → PSP (HTTPS message)'},
+ {id:'cle',a:'paf',b:'cle',ifc:'922-000',dir:'f',l:'→ CLEO (mechanism unknown)'},
+ {id:'poi',a:'paf',b:'poi',ifc:'926-000',dir:'f',l:'→ POISE PMS (unknown)'},
+ {id:'dob',a:'paf',b:'dob',ifc:'639-000',dir:'f',l:'Address data → DO Base Information (unknown)'},
+ {id:'dod',a:'paf',b:'dod',ifc:'923-000',dir:'f',l:'→ DO Daily Report (unknown)'},
+ {id:'add',a:'paf',b:'add',ifc:'920/710',dir:'b',l:'⇄ Address Mgmt Notification (ODBC/JDBC; inbound link every 30 min 04:00-18:00)'},
+ {id:'ads',a:'paf',b:'adds',ifc:'929-000',dir:'f',l:'Daily feed → Address Services (unknown)'},
+ {id:'amc',a:'amc',b:'paf',ifc:'721-000',dir:'f',l:'AMC Online → PAF (unknown)'},
+ {id:'pos',a:'paf',b:'pos',dir:'f',l:'Overnight feed → Postcodes Online look-up'},
  {id:'hm',a:'paf',b:'homer',ix:5,dir:'f',l:'Monthly products & DMA/BA extracts → Homer'},
  {id:'eb',a:'paf',b:'eb',ix:6,dir:'f',l:'Daily & monthly updates → E-Business'},
  {id:'cs',a:'paf',b:'cs',ix:7,dir:'f',l:'Daily & monthly address updates → Client Server'},
- {id:'cw',a:'cs',b:'web',ix:null,dir:'f',l:'Client Server → Internet Web'},
- {id:'us',a:'user',b:'paf',ix:null,dir:'b',l:'CICS/PCDA online maintenance & enquiry'}
+ {id:'cw',a:'cs',b:'web',dir:'f',l:'Client Server → Internet Web'},
+ {id:'us',a:'user',b:'paf',dir:'b',l:'CICS/PCDA online maintenance & enquiry'}
 ];
-XN.forEach((n,i)=>EDGES.push({id:'xe'+i,a:'paf',b:'x'+i,ix:null,dir:'b',l:'(p.16) '+n,extra:true}));
-/* TO-BE not yet defined beyond transition changes in this AOD. Push new components/edges here:
-   NODES.foo={...,asis:false,tobe:{s:'new',n:'…'}}  EDGES.push({...,asis:false,tobe:{s:'new',n:'…'}}) */
-
+const DEFAULT_TOBE='No functional change. Mainframe address range is carried over to ATOS at cut-over, so endpoint IPs/config are unchanged; the mainframe is the FTP client so targets are unchanged. ATOS firewalls are closed-by-default – protocol/port rules must be opened for this flow.';
+const TOBE_SUMMARY=[
+ 'Mainframe hosting moves from the CSC data centre to ATOS Birmingham Business Park (POH7 prod / POH8 non-prod).',
+ 'Original mainframe IP range is re-assigned to the ATOS mainframe at cut-over → no config change on partner systems.',
+ 'ATOS firewalls closed-by-default: rules required for every interface (FTP 20-22, ODBC/JDBC, HTTP(S), MQ…).',
+ 'ATOS provides SMTP gateway and DNS; ATOS CA-Automation Point replaces CSC monitoring tools.',
+ 'Lockheed Martin daily/monthly files re-routed through BIG FMS (FTP in, FTPS out).',
+ 'Siebel interface (8) decommissioned.'];
 const CHANGES=[
- ['Hosting','CSC mainframe (POH7 [IP redacted] / POH8 .28)','ATOS mainframe (POH7 [IP redacted] / POH8 [IP redacted]); interface IPs/servers unchanged','AOD [IP redacted], .7, .8'],
- ['App support','CSC','Capgemini; hardcoded CSC e-mail IDs → CG_ITST_LOT2B_Mainframe (RMG IDs unchanged)','AOD [IP redacted]'],
- ['Scheduler','OPC (CSC structure)','OPC structure unchanged','AOD [IP redacted]'],
- ['Siebel (Int. 8)','Shown on p.15 diagram','Decommissioned','AOD 1.6'],
- ['Functional / interface changes','—','None in this AOD ("no in-flight projects"). Awaiting further docs.','AOD 1.13']
+ ['Hosting','CSC data centre; POH7/POH8','ATOS BBP data centre; same LPARs, backup restored via secure transfer; DR hot standby at BBP','AMDD 1.2, 3.1.5; MDD'],
+ ['Network / IPs','CSC address range','Same range re-assigned to ATOS mainframe (plus ATOS-native addresses); partner IPs unchanged; later stages update FTP targets as targets migrate','AMDD 2.8, [IP redacted].3'],
+ ['Firewall','CSC rules','ATOS closed-by-default; explicit rules for all mainframe comms (verified at dress rehearsal)','AMDD A02, 4.1.6'],
+ ['Shared services','CSC SMTP gateway, DNS, monitoring','ATOS SMTP gateway & DNS; CA-Automation Point monitoring (events unchanged)','AMDD 3.1, 4.1.7'],
+ ['Access / security','CSC staff IDs; RACF','RACF restored as-is; CSC IDs removed, NSP IDs added; credentials unchanged','AMDD 3.1.4'],
+ ['Support model','CSC','Capgemini app support; ATOS infra/DB2/CICS admin (demarcation agreed 31-Jul-2015); mail IDs → CG_ITST_LOT2B_Mainframe','AOD [IP redacted], 8.4; Demarcation xls'],
+ ['Lockheed Martin feed','Direct FTP (IFC 312/313)','BIG FMS: FTP in → move/archive → FTPS out (I200067-MULTIPLE-E000609, Live)','LLD Confluence'],
+ ['Siebel (Int. 8)','Shown on AOD p.15','Decommissioned','AOD 1.6'],
+ ['Cut-over ops','—','MQ (QPP1) queues drained/stopped, HTTP services stopped on CSC; restart order: MQ queues → apps; FTP jobs restart once network ready','AMDD [IP redacted]'],
+ ['Unchanged','—','Scheduler (OPC), application code & functionality, Endevor release route, user roles','AOD [IP redacted]; AMDD 3.1'],
+ ['Pending','—','Further functional/interface changes: none found in any document so','—']
 ];
 const TECH=[
  ['Platform','IBM z/OS 1.13; zBC12 2828-H13 (prod POH7 660 MIPS; non-prod POH8 80 MIPS)'],
- ['Database','DB2 10.1 (CM8 mode); tables TPF*, views VPF*'],
+ ['Database','DB2 10.1 (CM8 mode); tables TPF*, views VPF* (see PAF Tables doc)'],
  ['Online','CICS 4.1 – PCDA screens; Postcodes intranet look-up; AMC Online'],
  ['Languages','COBOL 3.4.1, Assembler, REXX, SAS 9.1, SOLVE 4.0, JCL'],
- ['Batch','OPC/TWS; Monthly Extract on 3rd weekend (2nd in Dec); nightly ATF changes ~02:00'],
- ['Transfer','FTP, SFTP, SMTP via BIG/EDG'],
- ['Tooling','Endevor (source/release), File Master, SDF2, SAR, SDSF'],
- ['Environments','T Dev · E Education · Q System test · A UAT · I Model office · P Prod'],
- ['Service hours','Mon-Fri 07:00-19:00, Sat 07:00-17:30 BST; maint. Sun 20:00-23:00; support 24x7'],
- ['DR','Prod: BBP, hot standby, RTO 48h; SLA Sev1 120 min'],
+ ['Batch','OPC/TWS; Monthly Extract 3rd weekend (2nd in Dec); nightly ATF changes ~02:00'],
+ ['Products','Mainfile, Alias, Keychain, Changes, Compressed Standard, Ranges, PIF, UDPRN, Not Yet Built, Just Built, Multiple Residence, Postzon (PAF Digest)'],
+ ['Transfer','FTP, SFTP, FTPS, SMTP, ODBC/JDBC, MQ (QPP1), HTTPS via BIG/EDG/FMS'],
+ ['Release','Endevor package + checklist (CAST report RC=0; STANDARD vs EMERGENCY); T Dev · E Education · Q System test · A UAT · I Pre-prod · P Prod'],
+ ['Responsibilities','Infra admin (CICS, storage, batch scheduling tool, RACF, Endevor admin, DB2 DBA) mainly ATOS (RA); application team consulted/informed; DB design & change requests raised by app team'],
+ ['Service hours','Mon-Fri 07:00-19:00, Sat 07:00-17:30 BST; maintenance Sun 20:00-23:00; support 24x7'],
+ ['DR','Prod: BBP hot standby, RTO 48h; Sev1 SLA 120 min'],
  ['Key risks','FTP interfaces, terminal emulation, monitoring, infrastructure (score 12)']
 ];
 
@@ -154,7 +186,7 @@ const TECH=[
 const svg=document.getElementById('svg'),NS='http://www.w3.org/2000/svg';let mode='asis',sel=null;
 const col={paf:['#2d5fa8','#dbe8fa'],int:['#2f6f4f','#e6f3ec'],ext:['#b3261e','#fbe9e7'],mid:['#b58a00','#fff6cf']};
 const el=(n,a={},p=svg)=>{const e=document.createElementNS(NS,n);for(const k in a)e.setAttribute(k,a[k]);p.appendChild(e);return e};
-const showExtra=()=>document.getElementById('ext').checked;
+const showExtra=()=>false;
 const nodeState=n=>mode==='asis'?null:(n.tobe&&n.tobe.s)||(n.asis===false?'new':null);
 const exists=(o)=>mode==='asis'?o.asis!==false:true;
 function clip(n,tx,ty){const cx=n.x+n.w/2,cy=n.y+n.h/2,dx=tx-cx,dy=ty-cy;const s=Math.min(dx?(n.w/2)/Math.abs(dx):1e9,dy?(n.h/2)/Math.abs(dy):1e9);return[cx+dx*s,cy+dy*s]}
@@ -173,7 +205,7 @@ function draw(){
   const ln=el('line',{x1,y1,x2,y2,class:'edge '+(st?'e-'+st:''),'data-e':e.id,'marker-end':'url(#arf)'},g);
   if(e.dir==='b')ln.setAttribute('marker-start','url(#arr)');
   ln.style.cursor='pointer';ln.onclick=()=>pick(e);
-  if(e.ix){const l=el('g',{class:'lbl'},g),mx=(x1+x2)/2,my=(y1+y2)/2;el('circle',{cx:mx,cy:my,r:9},l);el('text',{x:mx,y:my},l).textContent=e.ix;l.style.cursor='pointer';l.onclick=()=>pick(e)}
+  if(e.ix||e.ifc){const l=el('g',{class:'lbl'},g),mx=x1+(x2-x1)*0.72,my=y1+(y2-y1)*0.72;const tg=e.ix||String(e.ifc).split('-')[0].split('/')[0];const rr=e.ix?9:13;el('circle',{cx:mx,cy:my,r:rr,style:e.ix?'':'fill:#f1f4f8;stroke-dasharray:2 2'},l);el('text',{x:mx,y:my,style:e.ix?'':'font-size:8px'},l).textContent=tg;l.style.cursor='pointer';l.onclick=()=>pick(e)}
  });
  Object.entries(NODES).forEach(([k,n])=>{
   if(!vis(n))return;const st=nodeState(n),[c,f]=col[n.k];const dim=mode==='diff'&&!st;
@@ -181,25 +213,25 @@ function draw(){
   el('rect',{x:n.x,y:n.y,width:n.w,height:n.h,fill:f,stroke:st?({new:'#1a7f37',chg:'#c77700',rem:'#b3261e'})[st]:c,'stroke-width':st?3.5:1.5,'stroke-dasharray':st==='rem'?'5 3':'' ,rx:7},g);
   const cx=n.x+n.w/2;
   if(n.k==='paf'){el('text',{x:cx,y:n.y+n.h/2-18,'text-anchor':'middle','font-weight':700,'font-size':15},g).textContent=n.t;
-   el('text',{x:cx,y:n.y+n.h/2+2,'text-anchor':'middle','class':'sub'},g).textContent=n.sub;
+   el('text',{x:cx,y:n.y+n.h/2+2,'text-anchor':'middle','class':'sub'},g).textContent=n.sub;el('text',{x:cx,y:n.y+n.h/2+16,'text-anchor':'middle','class':'sub','font-weight':700},g).textContent=(mode==='asis'?n.hostAs:n.hostTo);
    [['PAF Application','#8c2f6b',-90],['PAF Database (DB2)','#8c2f6b',10]].forEach(([t,cl,dx])=>{});
    el('rect',{x:n.x+14,y:n.y+n.h-54,width:100,height:36,fill:'#8c2f6b',rx:4},g);el('text',{x:n.x+64,y:n.y+n.h-36,'text-anchor':'middle',fill:'#fff','font-size':10},g).textContent='PAF Application';
    el('rect',{x:n.x+126,y:n.y+n.h-54,width:100,height:36,fill:'#8c2f6b',rx:4},g);el('text',{x:n.x+176,y:n.y+n.h-36,'text-anchor':'middle',fill:'#fff','font-size':10},g).textContent='PAF DB (DB2)';
   }else{
-   el('text',{x:cx,y:n.y+(n.sub?n.h/2-3:n.h/2+4),'text-anchor':'middle','font-weight':600,'font-size':n.extra?9.5:12},g).textContent=n.t;
+   el('text',{x:cx,y:n.y+(n.sub?n.h/2-3:n.h/2+4),'text-anchor':'middle','font-weight':600,'font-size':11.5},g).textContent=n.t;
    if(n.sub&&!n.extra)el('text',{x:cx,y:n.y+n.h/2+11,'text-anchor':'middle','class':'sub'},g).textContent=n.sub}
   if(st){const b=el('text',{x:n.x+n.w-4,y:n.y-4,'text-anchor':'end','class':'badge',fill:({new:'#1a7f37',chg:'#c77700',rem:'#b3261e'})[st]},g);b.textContent=({new:'NEW',chg:'CHANGED',rem:'REMOVED'})[st]}
   g.onclick=()=>pick(NODES[k],k);
  });
- if(showExtra()){el('text',{x:20,y:716,'font-size':11,fill:'#64707d'}).textContent='Additional interfaces from context diagram (AOD p.16) – direction/purpose unconfirmed'}
+ 
  if(sel)hl(sel);
 }
 function list(){
  const ul=document.getElementById('ixlist');ul.innerHTML='';
- EDGES.filter(e=>e.ix&&exists(e)).sort((a,b)=>a.ix-b.ix).forEach(e=>{
+ EDGES.filter(e=>(e.ix||e.ifc)&&exists(e)).sort((a,b)=>(a.ix?a.ix:100+parseInt(a.ifc))-(b.ix?b.ix:100+parseInt(b.ifc))).forEach(e=>{
   const st=mode==='asis'?null:(e.tobe&&e.tobe.s)||(e.asis===false?'new':null);
   const li=document.createElement('li');li.dataset.e=e.id;
-  li.innerHTML=`<b>${e.ix}</b><span>${e.l}${st?`<span class="tag ${st}">${st.toUpperCase()}</span>`:''}</span>`;
+  li.innerHTML=`<b style="${e.ix?'':'border-style:dashed;font-size:8px;'}">${e.ix||String(e.ifc).split('-')[0].split('/')[0]}</b><span>${e.l}${st?`<span class="tag ${st}">${st.toUpperCase()}</span>`:''}</span>`;
   li.onclick=()=>pick(e);ul.appendChild(li)});
 }
 function hl(o){
@@ -211,17 +243,17 @@ function hl(o){
 function pick(o,k){
  sel=o;hl(o);const D=document.getElementById('detail');let h='<h2>Details</h2>';
  if(o.a){h+=`<b>${o.ix?'Interaction '+o.ix:'Link'}</b><dl><dt>Flow</dt><dd>${NODES[o.a].t} ${o.dir==='b'?'⇄':'→'} ${NODES[o.b].t}</dd><dt>Description</dt><dd>${o.l}</dd>`;
-  if(o.via)h+=`<dt>Routed via</dt><dd>${o.via.map(v=>NODES[EDGES.find(e=>e.id===v).b].t).join(', ')}</dd>`}
+  if(o.ifc)h+=`<dt>AMDD interface ref</dt><dd>IFC ${o.ifc}</dd>`;if(o.note)h+=`<dt>Note</dt><dd>${o.note}</dd>`;if(o.via)h+=`<dt>Routed via</dt><dd>${o.via.map(v=>NODES[EDGES.find(e=>e.id===v).b].t).join(', ')}</dd>`}
  else{h+=`<b>${o.t}</b><dl>`;for(const q in o.d)h+=`<dt>${q}</dt><dd>${o.d[q]}</dd>`}
- if(mode!=='asis'){h+=`<dt>AS-IS → TO-BE</dt><dd>${(o.tobe&&o.tobe.n)||'No change identified'}</dd>`}
+ if(mode!=='asis'){h+=`<dt>AS-IS → TO-BE</dt><dd>${(o.tobe&&o.tobe.n)||(o.a?DEFAULT_TOBE:'No component-level change identified.')}</dd>`}
  D.innerHTML=h+'</dl>';
 }
 function note(){document.getElementById('note').innerHTML=mode==='asis'
- ?'<b>AS-IS</b> built from AOD sections 1.6, 3.7 and diagrams on pp.10, 15, 16. Numbers = AOD "Interactions".'
- :'<b>TO-BE (partial)</b> – this AOD documents only transition changes (ATOS hosting, Capgemini support, Siebel decommission). No functional/interface changes are listed ("no in-flight projects"). Further documents will add new/changed interactions.'}
+ ?'<b>AS-IS</b> from AOD §1.6/diagrams and AMDD §2.4.4. Solid circles = AOD interaction no.; dashed = AMDD IFC ref. Click anything for detail.'
+ :'<b>TO-BE</b> – CSC→ATOS migration plus Lockheed re-route:<ul style="margin:6px 0 0 16px;padding:0">'+TOBE_SUMMARY.map(x=>'<li>'+x+'</li>').join('')+'</ul>'}
 document.querySelectorAll('#mode button').forEach(b=>b.onclick=()=>{
  document.querySelectorAll('#mode button').forEach(x=>x.classList.remove('on'));b.classList.add('on');mode=b.dataset.m;draw();list();note()});
-document.getElementById('ext').onchange=draw;
+
 document.getElementById('chg').innerHTML='<tr><th>Area</th><th>AS-IS</th><th>TO-BE</th><th>Ref</th></tr>'+CHANGES.map(r=>'<tr>'+r.map(c=>'<td>'+c+'</td>').join('')+'</tr>').join('');
 document.getElementById('tech').innerHTML=TECH.map(r=>`<tr><th>${r[0]}</th><td>${r[1]}</td></tr>`).join('');
 draw();list();note();
