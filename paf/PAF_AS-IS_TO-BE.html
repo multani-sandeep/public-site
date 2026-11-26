@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<title>PAF (200067) – AS-IS vs TO-BE interactions</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1c2530;--mut:#64707d;--line:#c9d1da;--int:#2f6f4f;--ext:#b3261e;--mid:#b58a00;--pafc:#2d5fa8;
+--new:#1a7f37;--chg:#c77700;--rem:#b3261e}
+*{box-sizing:border-box}body{margin:0;font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+header{padding:14px 20px;background:#fff;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+h1{font-size:17px;margin:0;flex:1 1 320px}h1 small{display:block;color:var(--mut);font-weight:400;font-size:12px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:#fff;padding:7px 14px;font:inherit;cursor:pointer;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}.seg button.on{background:var(--ink);color:#fff}
+label.t{font-size:13px;color:var(--mut);display:flex;gap:6px;align-items:center}
+main{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:14px;padding:14px 20px}
+@media(max-width:1000px){main{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px}
+svg{width:100%;height:auto;display:block}
+.node rect{stroke-width:1.5;rx:7}.node text{font-size:12px;pointer-events:none}
+.node{cursor:pointer}.node .sub{font-size:10px;fill:var(--mut)}
+.edge{stroke:#6b7785;stroke-width:1.6;fill:none}.edge.hl{stroke:#111;stroke-width:3}
+.lbl circle{fill:#fff;stroke:#6b7785}.lbl text{font-size:10px;font-weight:600;text-anchor:middle;dominant-baseline:central}
+.dim{opacity:.18}.s-new{--c:var(--new)}.s-chg{--c:var(--chg)}.s-rem{--c:var(--rem)}
+.e-new{stroke:var(--new);stroke-width:2.6}.e-chg{stroke:var(--chg);stroke-width:2.6;stroke-dasharray:6 3}
+.e-rem{stroke:var(--rem);stroke-width:2.2;stroke-dasharray:3 4}
+.badge{font-size:9px;font-weight:700}
+h2{font-size:13px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut)}
+#ixlist{list-style:none;margin:0;padding:0;max-height:300px;overflow:auto}
+#ixlist li{display:flex;gap:8px;padding:6px 6px;border-radius:6px;cursor:pointer;border:1px solid transparent}
+#ixlist li:hover,#ixlist li.on{background:#eef3fb;border-color:#c7d6ee}
+#ixlist b{min-width:22px;height:22px;border-radius:50%;border:1.5px solid #6b7785;display:grid;place-items:center;font-size:11px;flex:none}
+#ixlist .tag{font-size:10px;font-weight:700;padding:0 5px;border-radius:4px;color:#fff;margin-left:4px}
+.tag.new{background:var(--new)}.tag.chg{background:var(--chg)}.tag.rem{background:var(--rem)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--mut);margin-top:8px}
+.legend i{display:inline-block;width:14px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px;border:1.5px solid}
+#detail dl{margin:0}#detail dt{font-weight:600;margin-top:6px}#detail dd{margin:0;color:#34404d}
+.warn{background:#fff8e6;border:1px solid #f0d58a;border-radius:8px;padding:8px 10px;font-size:12.5px}
+table{border-collapse:collapse;width:100%;font-size:12.5px}td,th{border-bottom:1px solid #e6eaef;padding:4px 6px;text-align:left;vertical-align:top}
+th{color:var(--mut);font-weight:600}
+details{margin-top:12px}summary{cursor:pointer;font-weight:600}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin:0 20px 20px}
+</style></head><body>
+<header>
+ <h1>PAF (200067) – Postal Address File: interaction map
+  <small>Source: RMG Application Overview Document 067-PAF v2.0 (Capgemini, Aug-2016) · more source docs to be merged</small></h1>
+ <div class="seg" id="mode"><button data-m="asis" class="on">AS-IS</button><button data-m="tobe">TO-BE</button><button data-m="diff">Changes only</button></div>
+ <label class="t"><input type="checkbox" id="ext"> show extra interfaces (AOD p.16)</label>
+</header>
+<main>
+ <div class="card"><svg id="svg" viewBox="0 0 1100 770"></svg>
+  <div class="legend">
+   <span><i style="border-color:#2f6f4f;background:#e6f3ec"></i>Internal system</span>
+   <span><i style="border-color:#b3261e;background:#fbe9e7"></i>External / 3rd party</span>
+   <span><i style="border-color:#b58a00;background:#fff6cf"></i>Intermediary (BIG/EDG)</span>
+   <span><i style="border-color:#1a7f37"></i>New</span><span><i style="border-color:#c77700"></i>Changed</span><span><i style="border-color:#b3261e"></i>Removed</span>
+  </div></div>
+ <aside style="display:flex;flex-direction:column;gap:14px">
+  <div class="card warn" id="note"></div>
+  <div class="card"><h2>Interactions <span style="text-transform:none;font-weight:400">(click to trace)</span></h2><ul id="ixlist"></ul></div>
+  <div class="card" id="detail"><h2>Details</h2><p style="color:var(--mut);margin:0">Click a component or interaction.</p></div>
+ </aside>
+</main>
+<div class="cols">
+ <div class="card"><h2>Changes captured so far (AS-IS → TO-BE)</h2><table id="chg"></table></div>
+ <div class="card"><h2>PAF internals (as documented)</h2><table id="tech"></table></div>
+</div>
+
+<script>
+/* =====================================================================
+   DATA MODEL – edit/extend here when more documents arrive.
+   node.tobe / edge.tobe = {s:'new'|'chg'|'rem', n:'note'} ; omit => unchanged.
+   node.asis===false => does not exist AS-IS (new in TO-BE).
+   ===================================================================== */
+const NODES={
+ paf:{x:430,y:300,w:240,h:170,t:'PAF (200067)',sub:'Postal Address File · z/OS · DB2 · CICS · COBOL',k:'paf',
+  d:{Role:'UK address database (~29M addresses, ~1.8M postcodes, ~1.3M changes/yr, 35+ products). L2 application, high criticality.',
+     Platform:'IBM z/OS mainframe (POH7 prod / POH8 non-prod), DB2 10.1, CICS 4.1, COBOL 3.4.1',Users:'AMU (Portsmouth) & contact centres – ~60 maintenance, ~40-50 enquiry'},
+  tobe:{s:'chg',n:'Hosting/support transition: mainframe hosted by ATOS (previously CSC); application support by Capgemini. Application, schedules (OPC) and interface IPs/servers remain the same "till further update" (AOD [IP redacted]-[IP redacted]).'}},
+ user:{x:455,y:60,w:190,h:48,t:'AMU / Contact Centre users',sub:'PCDA CICS screens · Portsmouth',k:'int',d:{Access:'CICS (PCDA) transactions via RMG desktop; screens must be available by 06:00 Mon-Sat'}},
+ big:{x:225,y:372,w:110,h:44,t:'BIG',sub:'File transfer hub',k:'mid',d:{Role:'Intermediary for outbound FTP/SFTP to 3rd parties (AFD, Optecon, Dataforce, CACI, Lockheed Martin)',Issue:'Monthly extract transfers via BIG need manual monitoring'}},
+ edg:{x:225,y:190,w:110,h:44,t:'EDG',sub:'Intermediary',k:'mid',d:{Role:'Intermediary shown feeding RMG Siebel (AOD p.15)'}},
+ siebel:{x:30,y:190,w:130,h:44,t:'Siebel (200094)',sub:'RMG Siebel',k:'int',d:{Status:'Interaction 8 – decommissioned per AOD 1.6'},tobe:{s:'rem',n:'Decommissioned (Interaction 8). Still drawn on the p.15 context diagram – diagram is stale.'}},
+ afd:{x:30,y:290,w:130,h:44,t:'AFD',sub:'3rd party',k:'ext',d:{Role:'Produces PAF daily & monthly products for end customers'}},
+ df:{x:30,y:350,w:130,h:44,t:'Dataforce',sub:'3rd party',k:'ext',d:{Role:'Receives KEYCHAIN, CHANGES1, CHANGES2 products'}},
+ caci:{x:30,y:410,w:130,h:44,t:'CACI',sub:'3rd party (p.15 only)',k:'ext',d:{Role:'Shown on context diagram via BIG; no numbered interaction in AOD text'}},
+ opt:{x:30,y:470,w:130,h:44,t:'Optecon',sub:'3rd party',k:'ext',d:{Role:'Prints stationery from Delivery Office file'}},
+ lm:{x:225,y:480,w:110,h:44,t:'Lockheed Martin',sub:'LMARTIN',k:'int',d:{Role:'Receives daily changes file'}},
+ atf:{x:900,y:80,w:150,h:42,t:'ATF / Address Service',sub:'SQL Server (Postcodes On-line)',k:'int',d:{Role:'DB sync; VPF600 changes applied ~02:00 by 2 VB programs via Shadow Direct, replicated to regional servers'}},
+ peg:{x:900,y:140,w:150,h:42,t:'Pegasus',sub:'Walk / DO updates',k:'int',d:{Role:'DB sync; daily walk & delivery-office updates. Job CPFPD080 validates walk data (VPF212 vs VPF102)'}},
+ walk:{x:900,y:200,w:150,h:42,t:'WalkDB',sub:'(p.15)',k:'int',d:{Role:'Shown on context diagram; no numbered interaction'}},
+ amn:{x:900,y:260,w:150,h:42,t:'AMN',sub:'inbound to PAF (p.15)',k:'int',d:{Role:'Inbound feed to PAF per diagram; no numbered interaction'}},
+ rmgtt:{x:900,y:320,w:150,h:42,t:'RMGTT (200095)',sub:'7-track item tracking',k:'int',d:{Role:'Receives address update file. CPFPTT01 needs Wintel PSCAN space'}},
+ credo:{x:900,y:380,w:150,h:42,t:'CREDO (200066)',sub:'Redirections',k:'int',d:{Role:'Receives redirection address updates and verifies address info'}},
+ gb:{x:900,y:440,w:150,h:42,t:'GB Group',sub:'external (p.15)',k:'ext',d:{Role:'On context diagram only; server entry GBGROUP1 in CPFP.SERVER.DETAILS'}},
+ rsa:{x:900,y:500,w:150,h:42,t:'RSA',sub:'external (p.15)',k:'ext',d:{Role:'On context diagram only; server entry RSA1'}},
+ homer:{x:225,y:640,w:150,h:48,t:'Homer ([IP redacted])',sub:'→ Internal & External Customers',k:'int',d:{Role:'Receives monthly products and DMA/BA extracts'}},
+ eb:{x:430,y:640,w:140,h:48,t:'E-Business (200341)',sub:'',k:'int',d:{Role:'Receives daily & monthly updates'}},
+ cs:{x:610,y:640,w:130,h:48,t:'Client Server',sub:'',k:'int',d:{Role:'Receives daily/monthly address updates'}},
+ web:{x:780,y:640,w:130,h:48,t:'Internet Web',sub:'→ Internal & External Customers',k:'int',d:{Role:'Downstream of Client Server. Also Postcodes intranet look-up fed overnight'}}
+};
+/* extra interfaces from AOD p.16 (low-resolution; direction not confirmed) */
+const XN=['848-ACC','683-CLE','066-RED','068-WAL','128-POI','654-POS','114-DEL','841-DEL','TBC-TRA','062-AIMC','069-ADD','282-APL','066-ADD','375-PSP'];
+XN.forEach((n,i)=>{NODES['x'+i]={x:20+i*77,y:722,w:72,h:34,t:n,sub:'',k:/TRA|AIMC|069|282|375/.test(n)?'ext':'int',extra:true,d:{Source:'AOD p.16 context diagram. Interface purpose/direction not described in text – confirm via Mainframe Workshops Interface list.'}}});
+/* edges: id, from, to, ix (interaction no. or null), dir ('f' from→to, 'b' both), label */
+const EDGES=[
+ {id:'pb',a:'paf',b:'big',ix:null,dir:'f',l:'FTP/SFTP outbound'},
+ {id:'ba',a:'big',b:'afd',ix:1,dir:'f',l:'Monthly & Walksort products → AFD',via:['pb']},
+ {id:'bo',a:'big',b:'opt',ix:4,dir:'f',l:'Delivery Office file → Optecon',via:['pb']},
+ {id:'bd',a:'big',b:'df',ix:11,dir:'f',l:'KEYCHAIN, CHANGES1, CHANGES2 → Dataforce',via:['pb']},
+ {id:'bl',a:'big',b:'lm',ix:12,dir:'f',l:'Daily changes file → LMARTIN',via:['pb']},
+ {id:'bc',a:'big',b:'caci',ix:null,dir:'f',l:'(p.15) via BIG',via:['pb']},
+ {id:'pe',a:'paf',b:'edg',ix:null,dir:'f',l:'(p.15)'},
+ {id:'es',a:'edg',b:'siebel',ix:8,dir:'f',l:'SEIBEL – decommissioned',tobe:{s:'rem',n:'Interface decommissioned.'}},
+ {id:'atf',a:'paf',b:'atf',ix:2,dir:'b',l:'Database sync with ATF'},
+ {id:'peg',a:'paf',b:'peg',ix:3,dir:'b',l:'Database sync; daily walk & DO updates'},
+ {id:'wdb',a:'paf',b:'walk',ix:null,dir:'f',l:'(p.15)'},
+ {id:'amn',a:'amn',b:'paf',ix:null,dir:'f',l:'(p.15) inbound'},
+ {id:'rt',a:'paf',b:'rmgtt',ix:10,dir:'f',l:'Address update file → RMGTT'},
+ {id:'cr',a:'paf',b:'credo',ix:9,dir:'b',l:'Redirection address updates → CREDO; CREDO verifies'},
+ {id:'gb',a:'paf',b:'gb',ix:null,dir:'f',l:'(p.15)'},
+ {id:'rsa',a:'paf',b:'rsa',ix:null,dir:'f',l:'(p.15)'},
+ {id:'hm',a:'paf',b:'homer',ix:5,dir:'f',l:'Monthly products & DMA/BA extracts → Homer'},
+ {id:'eb',a:'paf',b:'eb',ix:6,dir:'f',l:'Daily & monthly updates → E-Business'},
+ {id:'cs',a:'paf',b:'cs',ix:7,dir:'f',l:'Daily & monthly address updates → Client Server'},
+ {id:'cw',a:'cs',b:'web',ix:null,dir:'f',l:'Client Server → Internet Web'},
+ {id:'us',a:'user',b:'paf',ix:null,dir:'b',l:'CICS/PCDA online maintenance & enquiry'}
+];
+XN.forEach((n,i)=>EDGES.push({id:'xe'+i,a:'paf',b:'x'+i,ix:null,dir:'b',l:'(p.16) '+n,extra:true}));
+/* TO-BE not yet defined beyond transition changes in this AOD. Push new components/edges here:
+   NODES.foo={...,asis:false,tobe:{s:'new',n:'…'}}  EDGES.push({...,asis:false,tobe:{s:'new',n:'…'}}) */
+
+const CHANGES=[
+ ['Hosting','CSC mainframe (POH7 [IP redacted] / POH8 .28)','ATOS mainframe (POH7 [IP redacted] / POH8 [IP redacted]); interface IPs/servers unchanged','AOD [IP redacted], .7, .8'],
+ ['App support','CSC','Capgemini; hardcoded CSC e-mail IDs → CG_ITST_LOT2B_Mainframe (RMG IDs unchanged)','AOD [IP redacted]'],
+ ['Scheduler','OPC (CSC structure)','OPC structure unchanged','AOD [IP redacted]'],
+ ['Siebel (Int. 8)','Shown on p.15 diagram','Decommissioned','AOD 1.6'],
+ ['Functional / interface changes','—','None in this AOD ("no in-flight projects"). Awaiting further docs.','AOD 1.13']
+];
+const TECH=[
+ ['Platform','IBM z/OS 1.13; zBC12 2828-H13 (prod POH7 660 MIPS; non-prod POH8 80 MIPS)'],
+ ['Database','DB2 10.1 (CM8 mode); tables TPF*, views VPF*'],
+ ['Online','CICS 4.1 – PCDA screens; Postcodes intranet look-up; AMC Online'],
+ ['Languages','COBOL 3.4.1, Assembler, REXX, SAS 9.1, SOLVE 4.0, JCL'],
+ ['Batch','OPC/TWS; Monthly Extract on 3rd weekend (2nd in Dec); nightly ATF changes ~02:00'],
+ ['Transfer','FTP, SFTP, SMTP via BIG/EDG'],
+ ['Tooling','Endevor (source/release), File Master, SDF2, SAR, SDSF'],
+ ['Environments','T Dev · E Education · Q System test · A UAT · I Model office · P Prod'],
+ ['Service hours','Mon-Fri 07:00-19:00, Sat 07:00-17:30 BST; maint. Sun 20:00-23:00; support 24x7'],
+ ['DR','Prod: BBP, hot standby, RTO 48h; SLA Sev1 120 min'],
+ ['Key risks','FTP interfaces, terminal emulation, monitoring, infrastructure (score 12)']
+];
+
+/* ---------------- rendering ---------------- */
+const svg=document.getElementById('svg'),NS='http://www.w3.org/2000/svg';let mode='asis',sel=null;
+const col={paf:['#2d5fa8','#dbe8fa'],int:['#2f6f4f','#e6f3ec'],ext:['#b3261e','#fbe9e7'],mid:['#b58a00','#fff6cf']};
+const el=(n,a={},p=svg)=>{const e=document.createElementNS(NS,n);for(const k in a)e.setAttribute(k,a[k]);p.appendChild(e);return e};
+const showExtra=()=>document.getElementById('ext').checked;
+const nodeState=n=>mode==='asis'?null:(n.tobe&&n.tobe.s)||(n.asis===false?'new':null);
+const exists=(o)=>mode==='asis'?o.asis!==false:true;
+function clip(n,tx,ty){const cx=n.x+n.w/2,cy=n.y+n.h/2,dx=tx-cx,dy=ty-cy;const s=Math.min(dx?(n.w/2)/Math.abs(dx):1e9,dy?(n.h/2)/Math.abs(dy):1e9);return[cx+dx*s,cy+dy*s]}
+function draw(){
+ svg.innerHTML='';
+ const d=el('defs');
+ ['f','r'].forEach(t=>{const m=el('marker',{id:'ar'+t,viewBox:'0 0 10 10',refX:9,refY:5,markerWidth:7,markerHeight:7,orient:t==='f'?'auto':'auto-start-reverse'},d);el('path',{d:'M0 0L10 5L0 10z',fill:'#555'},m)});
+ const vis=n=>exists(n)&&(!n.extra||showExtra());
+ const nm=k=>NODES[k];
+ EDGES.forEach(e=>{
+  const A=nm(e.a),B=nm(e.b);if(!vis(e)||!vis(A)||!vis(B))return;
+  const [x1,y1]=clip(A,B.x+B.w/2,B.y+B.h/2),[x2,y2]=clip(B,A.x+A.w/2,A.y+A.h/2);
+  const st=mode==='asis'?null:(e.tobe&&e.tobe.s)||(e.asis===false?'new':null);
+  const dim=mode==='diff'&&!st;
+  const g=el('g',{class:dim?'dim':''});
+  const ln=el('line',{x1,y1,x2,y2,class:'edge '+(st?'e-'+st:''),'data-e':e.id,'marker-end':'url(#arf)'},g);
+  if(e.dir==='b')ln.setAttribute('marker-start','url(#arr)');
+  ln.style.cursor='pointer';ln.onclick=()=>pick(e);
+  if(e.ix){const l=el('g',{class:'lbl'},g),mx=(x1+x2)/2,my=(y1+y2)/2;el('circle',{cx:mx,cy:my,r:9},l);el('text',{x:mx,y:my},l).textContent=e.ix;l.style.cursor='pointer';l.onclick=()=>pick(e)}
+ });
+ Object.entries(NODES).forEach(([k,n])=>{
+  if(!vis(n))return;const st=nodeState(n),[c,f]=col[n.k];const dim=mode==='diff'&&!st;
+  const g=el('g',{class:'node'+(dim?' dim':''),'data-n':k});
+  el('rect',{x:n.x,y:n.y,width:n.w,height:n.h,fill:f,stroke:st?({new:'#1a7f37',chg:'#c77700',rem:'#b3261e'})[st]:c,'stroke-width':st?3.5:1.5,'stroke-dasharray':st==='rem'?'5 3':'' ,rx:7},g);
+  const cx=n.x+n.w/2;
+  if(n.k==='paf'){el('text',{x:cx,y:n.y+n.h/2-18,'text-anchor':'middle','font-weight':700,'font-size':15},g).textContent=n.t;
+   el('text',{x:cx,y:n.y+n.h/2+2,'text-anchor':'middle','class':'sub'},g).textContent=n.sub;
+   [['PAF Application','#8c2f6b',-90],['PAF Database (DB2)','#8c2f6b',10]].forEach(([t,cl,dx])=>{});
+   el('rect',{x:n.x+14,y:n.y+n.h-54,width:100,height:36,fill:'#8c2f6b',rx:4},g);el('text',{x:n.x+64,y:n.y+n.h-36,'text-anchor':'middle',fill:'#fff','font-size':10},g).textContent='PAF Application';
+   el('rect',{x:n.x+126,y:n.y+n.h-54,width:100,height:36,fill:'#8c2f6b',rx:4},g);el('text',{x:n.x+176,y:n.y+n.h-36,'text-anchor':'middle',fill:'#fff','font-size':10},g).textContent='PAF DB (DB2)';
+  }else{
+   el('text',{x:cx,y:n.y+(n.sub?n.h/2-3:n.h/2+4),'text-anchor':'middle','font-weight':600,'font-size':n.extra?9.5:12},g).textContent=n.t;
+   if(n.sub&&!n.extra)el('text',{x:cx,y:n.y+n.h/2+11,'text-anchor':'middle','class':'sub'},g).textContent=n.sub}
+  if(st){const b=el('text',{x:n.x+n.w-4,y:n.y-4,'text-anchor':'end','class':'badge',fill:({new:'#1a7f37',chg:'#c77700',rem:'#b3261e'})[st]},g);b.textContent=({new:'NEW',chg:'CHANGED',rem:'REMOVED'})[st]}
+  g.onclick=()=>pick(NODES[k],k);
+ });
+ if(showExtra()){el('text',{x:20,y:716,'font-size':11,fill:'#64707d'}).textContent='Additional interfaces from context diagram (AOD p.16) – direction/purpose unconfirmed'}
+ if(sel)hl(sel);
+}
+function list(){
+ const ul=document.getElementById('ixlist');ul.innerHTML='';
+ EDGES.filter(e=>e.ix&&exists(e)).sort((a,b)=>a.ix-b.ix).forEach(e=>{
+  const st=mode==='asis'?null:(e.tobe&&e.tobe.s)||(e.asis===false?'new':null);
+  const li=document.createElement('li');li.dataset.e=e.id;
+  li.innerHTML=`<b>${e.ix}</b><span>${e.l}${st?`<span class="tag ${st}">${st.toUpperCase()}</span>`:''}</span>`;
+  li.onclick=()=>pick(e);ul.appendChild(li)});
+}
+function hl(o){
+ document.querySelectorAll('.edge').forEach(x=>x.classList.remove('hl'));
+ document.querySelectorAll('#ixlist li').forEach(x=>x.classList.remove('on'));
+ if(o.a){[o.id,...(o.via||[])].forEach(id=>{const l=document.querySelector(`[data-e="${id}"]`);l&&l.classList.add('hl')});
+  const li=document.querySelector(`#ixlist li[data-e="${o.id}"]`);li&&li.classList.add('on')}
+}
+function pick(o,k){
+ sel=o;hl(o);const D=document.getElementById('detail');let h='<h2>Details</h2>';
+ if(o.a){h+=`<b>${o.ix?'Interaction '+o.ix:'Link'}</b><dl><dt>Flow</dt><dd>${NODES[o.a].t} ${o.dir==='b'?'⇄':'→'} ${NODES[o.b].t}</dd><dt>Description</dt><dd>${o.l}</dd>`;
+  if(o.via)h+=`<dt>Routed via</dt><dd>${o.via.map(v=>NODES[EDGES.find(e=>e.id===v).b].t).join(', ')}</dd>`}
+ else{h+=`<b>${o.t}</b><dl>`;for(const q in o.d)h+=`<dt>${q}</dt><dd>${o.d[q]}</dd>`}
+ if(mode!=='asis'){h+=`<dt>AS-IS → TO-BE</dt><dd>${(o.tobe&&o.tobe.n)||'No change identified'}</dd>`}
+ D.innerHTML=h+'</dl>';
+}
+function note(){document.getElementById('note').innerHTML=mode==='asis'
+ ?'<b>AS-IS</b> built from AOD sections 1.6, 3.7 and diagrams on pp.10, 15, 16. Numbers = AOD "Interactions".'
+ :'<b>TO-BE (partial)</b> – this AOD documents only transition changes (ATOS hosting, Capgemini support, Siebel decommission). No functional/interface changes are listed ("no in-flight projects"). Further documents will add new/changed interactions.'}
+document.querySelectorAll('#mode button').forEach(b=>b.onclick=()=>{
+ document.querySelectorAll('#mode button').forEach(x=>x.classList.remove('on'));b.classList.add('on');mode=b.dataset.m;draw();list();note()});
+document.getElementById('ext').onchange=draw;
+document.getElementById('chg').innerHTML='<tr><th>Area</th><th>AS-IS</th><th>TO-BE</th><th>Ref</th></tr>'+CHANGES.map(r=>'<tr>'+r.map(c=>'<td>'+c+'</td>').join('')+'</tr>').join('');
+document.getElementById('tech').innerHTML=TECH.map(r=>`<tr><th>${r[0]}</th><td>${r[1]}</td></tr>`).join('');
+draw();list();note();
+</script></body></html>
